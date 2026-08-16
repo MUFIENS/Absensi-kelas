@@ -229,7 +229,11 @@ export default function SekretarisQRKelasPage() {
         setIsExpired(calc.expired);
         setTimeLeftStr(calc.text);
         setIsCreateModalOpen(false);
+      } else {
+        alert(res.message || "Gagal membuat sesi QR.");
       }
+    } catch {
+      alert("Terjadi kendala koneksi server saat membuat sesi QR.");
     } finally {
       setIsLoading(false);
     }

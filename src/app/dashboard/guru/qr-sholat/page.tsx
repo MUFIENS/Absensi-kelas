@@ -230,7 +230,11 @@ export default function GuruQRSholatPage() {
         setIsExpired(calc.expired);
         setTimeLeftStr(calc.text);
         setIsCreateModalOpen(false);
+      } else {
+        alert(res.message || "Gagal membuat sesi QR sholat.");
       }
+    } catch {
+      alert("Terjadi kendala koneksi server saat membuat sesi QR sholat.");
     } finally {
       setIsLoading(false);
     }

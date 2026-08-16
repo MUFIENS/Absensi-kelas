@@ -97,23 +97,29 @@ ALTER TABLE public.absensi_records ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.izin_records ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.consumed_qr_tokens ENABLE ROW LEVEL SECURITY;
 
--- Read policies for Anon / Client (SELECT only)
+-- Row Level Security Policies
 DROP POLICY IF EXISTS "Allow public select on siswa" ON public.siswa;
 CREATE POLICY "Allow public select on siswa" ON public.siswa FOR SELECT USING (true);
 
+DROP POLICY IF EXISTS "Allow all on qr_sessions" ON public.qr_sessions;
 DROP POLICY IF EXISTS "Allow public select on qr_sessions" ON public.qr_sessions;
-CREATE POLICY "Allow public select on qr_sessions" ON public.qr_sessions FOR SELECT USING (true);
+CREATE POLICY "Allow all on qr_sessions" ON public.qr_sessions FOR ALL USING (true) WITH CHECK (true);
 
+DROP POLICY IF EXISTS "Allow all on absensi_records" ON public.absensi_records;
 DROP POLICY IF EXISTS "Allow public select on absensi_records" ON public.absensi_records;
-CREATE POLICY "Allow public select on absensi_records" ON public.absensi_records FOR SELECT USING (true);
+CREATE POLICY "Allow all on absensi_records" ON public.absensi_records FOR ALL USING (true) WITH CHECK (true);
 
+DROP POLICY IF EXISTS "Allow all on izin_records" ON public.izin_records;
 DROP POLICY IF EXISTS "Allow public select on izin_records" ON public.izin_records;
-CREATE POLICY "Allow public select on izin_records" ON public.izin_records FOR SELECT USING (true);
+CREATE POLICY "Allow all on izin_records" ON public.izin_records FOR ALL USING (true) WITH CHECK (true);
 
--- Catatan Keamanan: Tabel admin_users TIDAK memiliki policy public SELECT
--- Akses baca/tulis hanya boleh dilakukan melalui Server Actions (SUPABASE_SERVICE_ROLE_KEY)
+DROP POLICY IF EXISTS "Allow all on consumed_qr_tokens" ON public.consumed_qr_tokens;
+CREATE POLICY "Allow all on consumed_qr_tokens" ON public.consumed_qr_tokens FOR ALL USING (true) WITH CHECK (true);
 
--- Private Storage Buckets
+DROP POLICY IF EXISTS "Allow select on admin_users" ON public.admin_users;
+CREATE POLICY "Allow select on admin_users" ON public.admin_users FOR SELECT USING (true);
+
+-- Private Storage Buckets & Policies
 INSERT INTO storage.buckets (id, name, public) 
 VALUES ('absensi-selfies', 'absensi-selfies', false)
 ON CONFLICT (id) DO UPDATE SET public = false;
@@ -121,6 +127,12 @@ ON CONFLICT (id) DO UPDATE SET public = false;
 INSERT INTO storage.buckets (id, name, public) 
 VALUES ('surat-izin', 'surat-izin', false)
 ON CONFLICT (id) DO UPDATE SET public = false;
+
+DROP POLICY IF EXISTS "Allow upload selfies and surat" ON storage.objects;
+CREATE POLICY "Allow upload selfies and surat" ON storage.objects FOR INSERT WITH CHECK (bucket_id IN ('absensi-selfies', 'surat-izin'));
+
+DROP POLICY IF EXISTS "Allow read selfies and surat" ON storage.objects;
+CREATE POLICY "Allow read selfies and surat" ON storage.objects FOR SELECT USING (bucket_id IN ('absensi-selfies', 'surat-izin'));
 
 -- Realtime Publication
 ALTER PUBLICATION supabase_realtime ADD TABLE public.qr_sessions;
