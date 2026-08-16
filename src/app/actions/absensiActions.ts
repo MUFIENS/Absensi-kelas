@@ -414,7 +414,7 @@ export async function getSignedMediaUrlAction(
   const supabase = getSupabaseServerClient();
   const { data, error } = await supabase.storage
     .from(bucket)
-    .createSignedUrl(storagePath, 900); // 15 menit (900 detik)
+    .createSignedUrl(storagePath, 3600); // 1 jam (3600 detik)
 
   if (error || !data) {
     return { success: false, url: '' };
@@ -423,145 +423,231 @@ export async function getSignedMediaUrlAction(
   return { success: true, url: data.signedUrl };
 }
 
+// 9b. Dapatkan Batch Signed URL untuk Melihat Banyak Foto Sekaligus (1 Jam)
+export async function getSignedMediaUrlsBatchAction(
+  bucket: 'absensi-selfies' | 'surat-izin',
+  storagePaths: string[],
+  expiresIn: number = 3600
+) {
+  if (!storagePaths || storagePaths.length === 0) return {};
+
+  const supabase = getSupabaseServerClient();
+  const validPaths = Array.from(
+    new Set(
+      storagePaths.filter(
+        (p) => p && typeof p === 'string' && !p.startsWith('data:') && !p.startsWith('http')
+      )
+    )
+  );
+
+  if (validPaths.length === 0) return {};
+
+  const { data, error } = await supabase.storage
+    .from(bucket)
+    .createSignedUrls(validPaths, expiresIn);
+
+  const urlMap: Record<string, string> = {};
+  if (data) {
+    data.forEach((item) => {
+      if (item.signedUrl && item.path) {
+        urlMap[item.path] = item.signedUrl;
+      }
+    });
+  }
+  return urlMap;
+}
+
 // 10. Ambil Rekap Presensi Bulanan Lengkap
 export async function fetchRekapKelasAction(bulan: number, tahun: number, customHariEfektif?: number) {
   const supabase = getSupabaseServerClient();
   try {
     // 1. Ambil daftar siswa
     const { data: siswaList } = await supabase
-    .from('siswa')
-    .select('*')
-    .order('nomor_absen', { ascending: true });
+      .from('siswa')
+      .select('*')
+      .order('nomor_absen', { ascending: true });
 
-  if (!siswaList || siswaList.length === 0) {
-    return {
-      success: true,
-      rekap: [],
-      hariEfektifInfo: getHariEfektifBulan(bulan, tahun),
+    if (!siswaList || siswaList.length === 0) {
+      return {
+        success: true,
+        rekap: [],
+        hariEfektifInfo: getHariEfektifBulan(bulan, tahun),
+      };
+    }
+
+    // 2. Ambil sesi QR bulan ini
+    const padMonth = String(bulan).padStart(2, '0');
+    const startDate = `${tahun}-${padMonth}-01`;
+    const nextMonth = bulan === 12 ? 1 : bulan + 1;
+    const nextYear = bulan === 12 ? tahun + 1 : tahun;
+    const endDate = `${nextYear}-${String(nextMonth).padStart(2, '0')}-01`;
+
+    const { data: sesiList } = await supabase
+      .from('qr_sessions')
+      .select('*')
+      .gte('tanggal', startDate)
+      .lt('tanggal', endDate);
+
+    // 3. Ambil absensi records bulan ini
+    const { data: absensiList } = await supabase
+      .from('absensi_records')
+      .select('*')
+      .gte('tanggal', startDate)
+      .lt('tanggal', endDate);
+
+    // 4. Ambil izin records bulan ini
+    const { data: izinList } = await supabase
+      .from('izin_records')
+      .select('*')
+      .gte('tanggal', startDate)
+      .lt('tanggal', endDate);
+
+    const hariEfektifInfo = getHariEfektifBulan(bulan, tahun);
+    const totalHariEfektif = customHariEfektif !== undefined && customHariEfektif > 0
+      ? customHariEfektif
+      : hariEfektifInfo.totalHariEfektif;
+
+    const now = new Date();
+    const todayStr = getJakartaDateString(now);
+
+    // Tanggal unik yang memiliki presensi / izin masuk
+    const tanggalAdaPresensiKelas = new Set(
+      (absensiList || []).filter(r => r.jenis === 'kehadiran_kelas').map(r => r.tanggal)
+    );
+    const tanggalAdaIzin = new Set(
+      (izinList || []).filter(r => r.status === 'verified').map(r => r.tanggal)
+    );
+    const tanggalAdaPresensiSholat = new Set(
+      (absensiList || []).filter(r => r.jenis === 'sholat_dzuhur').map(r => r.tanggal)
+    );
+
+    // Cek apakah sesi sudah ditutup / berakhir
+    const isSessionClosed = (s: any) => {
+      if (s.tanggal < todayStr) return true;
+      if (s.tanggal > todayStr) return false;
+      // Untuk hari ini: dianggap selesai jika is_active false atau waktu_berakhir telah terlewat
+      if (!s.is_active) return true;
+      if (s.waktu_berakhir && now > new Date(s.waktu_berakhir)) return true;
+      return false;
     };
-  }
 
-  // 2. Ambil sesi QR bulan ini
-  const padMonth = String(bulan).padStart(2, '0');
-  const startDate = `${tahun}-${padMonth}-01`;
-  const nextMonth = bulan === 12 ? 1 : bulan + 1;
-  const nextYear = bulan === 12 ? tahun + 1 : tahun;
-  const endDate = `${nextYear}-${String(nextMonth).padStart(2, '0')}-01`;
+    // Tanggal sesi kelas yang SUDAH SELESAI (sah untuk penetapan Alpa)
+    const tanggalSesiKelasSelesai = new Set(
+      (sesiList || [])
+        .filter(s => s.jenis === 'kehadiran_kelas' && isSessionClosed(s))
+        .filter(s => tanggalAdaPresensiKelas.has(s.tanggal) || tanggalAdaIzin.has(s.tanggal))
+        .map(s => s.tanggal)
+    );
 
-  const { data: sesiList } = await supabase
-    .from('qr_sessions')
-    .select('*')
-    .gte('tanggal', startDate)
-    .lt('tanggal', endDate);
+    // Tanggal sesi kelas total (termasuk yang sedang aktif saat ini)
+    const tanggalSesiKelasTotal = new Set(
+      (sesiList || [])
+        .filter(s => s.jenis === 'kehadiran_kelas')
+        .filter(s => tanggalAdaPresensiKelas.has(s.tanggal) || tanggalAdaIzin.has(s.tanggal))
+        .map(s => s.tanggal)
+    );
 
-  // 3. Ambil absensi records bulan ini
-  const { data: absensiList } = await supabase
-    .from('absensi_records')
-    .select('*')
-    .gte('tanggal', startDate)
-    .lt('tanggal', endDate);
+    // Tanggal sesi sholat yang SUDAH SELESAI
+    const tanggalSesiSholatSelesai = new Set(
+      (sesiList || [])
+        .filter(s => s.jenis === 'sholat_dzuhur' && isSessionClosed(s))
+        .filter(s => tanggalAdaPresensiSholat.has(s.tanggal))
+        .map(s => s.tanggal)
+    );
 
-  // 4. Ambil izin records bulan ini
-  const { data: izinList } = await supabase
-    .from('izin_records')
-    .select('*')
-    .gte('tanggal', startDate)
-    .lt('tanggal', endDate);
+    const tanggalSesiSholatTotal = new Set(
+      (sesiList || [])
+        .filter(s => s.jenis === 'sholat_dzuhur')
+        .filter(s => tanggalAdaPresensiSholat.has(s.tanggal))
+        .map(s => s.tanggal)
+    );
 
-  const hariEfektifInfo = getHariEfektifBulan(bulan, tahun);
-  const totalHariEfektif = customHariEfektif !== undefined && customHariEfektif > 0
-    ? customHariEfektif
-    : hariEfektifInfo.totalHariEfektif;
+    const sesiKelasSelesai = tanggalSesiKelasSelesai.size;
+    const sesiKelasTotal = tanggalSesiKelasTotal.size;
+    const sesiSholatSelesai = tanggalSesiSholatSelesai.size;
+    const sesiSholatTotal = tanggalSesiSholatTotal.size;
 
-  // Tanggal unik yang memiliki presensi / izin masuk
-  const tanggalAdaPresensiKelas = new Set(
-    (absensiList || []).filter(r => r.jenis === 'kehadiran_kelas').map(r => r.tanggal)
-  );
-  const tanggalAdaIzin = new Set(
-    (izinList || []).filter(r => r.status === 'verified').map(r => r.tanggal)
-  );
-  const tanggalAdaPresensiSholat = new Set(
-    (absensiList || []).filter(r => r.jenis === 'sholat_dzuhur').map(r => r.tanggal)
-  );
+    const rekap: RekapItemSiswa[] = siswaList.map(s => {
+      const studentAbsensi = (absensiList || []).filter(r => r.siswa_id === s.id);
+      const studentIzin = (izinList || []).filter(r => r.siswa_id === s.id);
 
-  // Hari berjalan kelas hanya dihitung jika ada sesi yang sah dan terdapat aktivitas presensi/izin
-  const tanggalSesiKelas = new Set(
-    (sesiList || [])
-      .filter(s => s.jenis === 'kehadiran_kelas')
-      .filter(s => tanggalAdaPresensiKelas.has(s.tanggal) || tanggalAdaIzin.has(s.tanggal))
-      .map(s => s.tanggal)
-  );
+      // Kehadiran kelas (seluruh bulan)
+      const kelasHadir = studentAbsensi.filter(
+        r => r.jenis === 'kehadiran_kelas' && (r.status === 'verified' || r.status === 'pending')
+      ).length;
 
-  // Hari berjalan sholat dzuhur hanya dihitung jika ada aktivitas presensi sholat
-  const tanggalSesiSholat = new Set(
-    (sesiList || [])
-      .filter(s => s.jenis === 'sholat_dzuhur')
-      .filter(s => tanggalAdaPresensiSholat.has(s.tanggal))
-      .map(s => s.tanggal)
-  );
+      const kelasSakit = studentIzin.filter(
+        r => r.jenis === 'Sakit' && r.status === 'verified'
+      ).length;
 
-  const sesiKelasBerjalan = tanggalSesiKelas.size;
-  const sesiSholatBerjalan = tanggalSesiSholat.size;
+      const kelasIzin = studentIzin.filter(
+        r => (r.jenis === 'Izin' || r.jenis === 'Dispensasi') && r.status === 'verified'
+      ).length;
 
-  const rekap: RekapItemSiswa[] = siswaList.map(s => {
-    const studentAbsensi = (absensiList || []).filter(r => r.siswa_id === s.id);
-    const studentIzin = (izinList || []).filter(r => r.siswa_id === s.id);
+      // Presensi pada sesi yang SUDAH SELESAI (untuk perhitungan Alpa sah)
+      const pastKelasHadir = studentAbsensi.filter(
+        r => r.jenis === 'kehadiran_kelas' && (r.status === 'verified' || r.status === 'pending') && tanggalSesiKelasSelesai.has(r.tanggal)
+      ).length;
 
-    // Kehadiran kelas
-    const kelasHadir = studentAbsensi.filter(
-      r => r.jenis === 'kehadiran_kelas' && (r.status === 'verified' || r.status === 'pending')
-    ).length;
+      const pastKelasSakit = studentIzin.filter(
+        r => r.jenis === 'Sakit' && r.status === 'verified' && tanggalSesiKelasSelesai.has(r.tanggal)
+      ).length;
 
-    const kelasSakit = studentIzin.filter(
-      r => r.jenis === 'Sakit' && r.status === 'verified'
-    ).length;
+      const pastKelasIzin = studentIzin.filter(
+        r => (r.jenis === 'Izin' || r.jenis === 'Dispensasi') && r.status === 'verified' && tanggalSesiKelasSelesai.has(r.tanggal)
+      ).length;
 
-    const kelasIzin = studentIzin.filter(
-      r => (r.jenis === 'Izin' || r.jenis === 'Dispensasi') && r.status === 'verified'
-    ).length;
+      const pastKelasTerdata = pastKelasHadir + pastKelasSakit + pastKelasIzin;
+      // Alpa HANYA dihitung dari sesi yang SUDAH SELESAI
+      const kelasAlpa = sesiKelasSelesai > 0 ? Math.max(0, sesiKelasSelesai - pastKelasTerdata) : 0;
+      
+      const baseSesiKelas = sesiKelasSelesai > 0 ? sesiKelasSelesai : (sesiKelasTotal > 0 ? 1 : 0);
+      const kelasPersentase = baseSesiKelas > 0
+        ? Math.min(100, Math.round(((kelasHadir + kelasSakit + kelasIzin) / baseSesiKelas) * 100))
+        : 100;
 
-    const kelasTerdata = kelasHadir + kelasSakit + kelasIzin;
-    const kelasAlpa = sesiKelasBerjalan > 0 ? Math.max(0, sesiKelasBerjalan - kelasTerdata) : 0;
-    const kelasPersentase = sesiKelasBerjalan > 0
-      ? Math.min(100, Math.round(((kelasHadir + kelasSakit + kelasIzin) / sesiKelasBerjalan) * 100))
-      : 0;
+      // Sholat dzuhur (seluruh bulan)
+      const sholatHadir = studentAbsensi.filter(
+        r => r.jenis === 'sholat_dzuhur' && (r.status === 'verified' || r.status === 'pending')
+      ).length;
 
-    // Sholat dzuhur
-    const sholatHadir = studentAbsensi.filter(
-      r => r.jenis === 'sholat_dzuhur' && (r.status === 'verified' || r.status === 'pending')
-    ).length;
+      const pastSholatHadir = studentAbsensi.filter(
+        r => r.jenis === 'sholat_dzuhur' && (r.status === 'verified' || r.status === 'pending') && tanggalSesiSholatSelesai.has(r.tanggal)
+      ).length;
 
-    const sholatAlpa = sesiSholatBerjalan > 0 ? Math.max(0, sesiSholatBerjalan - sholatHadir) : 0;
-    const sholatPersentase = sesiSholatBerjalan > 0
-      ? Math.min(100, Math.round((sholatHadir / sesiSholatBerjalan) * 100))
-      : 0;
+      // Alpa Sholat HANYA dihitung dari sesi sholat yang SUDAH SELESAI
+      const sholatAlpa = sesiSholatSelesai > 0 ? Math.max(0, sesiSholatSelesai - pastSholatHadir) : 0;
+      const baseSesiSholat = sesiSholatSelesai > 0 ? sesiSholatSelesai : (sesiSholatTotal > 0 ? 1 : 0);
+      const sholatPersentase = baseSesiSholat > 0
+        ? Math.min(100, Math.round((sholatHadir / baseSesiSholat) * 100))
+        : 100;
 
-    return {
-      siswa: {
-        id: s.id,
-        nis: s.nisn,
-        nama: s.nama,
-        nomorAbsen: s.nomor_absen,
-        gender: s.gender as 'L' | 'P',
-      },
-      kehadiranKelas: {
-        hadir: kelasHadir,
-        sakit: kelasSakit,
-        izin: kelasIzin,
-        alpa: kelasAlpa,
-        totalHari: totalHariEfektif,
-        hariBerjalan: sesiKelasBerjalan,
-        persentase: kelasPersentase,
-      },
-      sholatDzuhur: {
-        hadir: sholatHadir,
-        alpa: sholatAlpa,
-        totalHari: totalHariEfektif,
-        hariBerjalan: sesiSholatBerjalan,
-        persentase: sholatPersentase,
-      },
-    };
-  });
+      return {
+        siswa: {
+          id: s.id,
+          nis: s.nisn,
+          nama: s.nama,
+          nomorAbsen: s.nomor_absen,
+          gender: s.gender as 'L' | 'P',
+        },
+        kehadiranKelas: {
+          hadir: kelasHadir,
+          sakit: kelasSakit,
+          izin: kelasIzin,
+          alpa: kelasAlpa,
+          totalHari: totalHariEfektif,
+          hariBerjalan: sesiKelasTotal,
+          persentase: kelasPersentase,
+        },
+        sholatDzuhur: {
+          hadir: sholatHadir,
+          alpa: sholatAlpa,
+          totalHari: totalHariEfektif,
+          hariBerjalan: sesiSholatTotal,
+          persentase: sholatPersentase,
+        },
+      };
+    });
 
     return {
       success: true,

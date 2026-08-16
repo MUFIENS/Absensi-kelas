@@ -285,7 +285,7 @@ function LoginForm() {
 
             <Input
               label="Nama Lengkap Siswa"
-              placeholder="Contoh: Abdad Farras Orlando"
+              placeholder="Masukkan nama lengkap siswa..."
               value={namaSiswa}
               onChange={(e) => setNamaSiswa(e.target.value)}
               helperText="Ketik Nama Lengkap sesuai yang terdaftar di kelas XI PPLG 1."
@@ -293,7 +293,7 @@ function LoginForm() {
 
             <Input
               label="Nomor Induk Siswa Nasional (NISN)"
-              placeholder="Contoh: 0095725690"
+              placeholder="Masukkan 10 digit NISN..."
               value={nisn}
               onChange={(e) => setNisn(e.target.value)}
               helperText="10 Digit NISN resmi yang ada di kartu pelajar / rapor."
@@ -323,7 +323,7 @@ function LoginForm() {
 
             <Input
               label="Username Sekretaris"
-              placeholder="sekretaris_xi_pplg1"
+              placeholder="Masukkan username sekretaris..."
               value={sekretarisUser}
               onChange={(e) => setSekretarisUser(e.target.value)}
             />
@@ -331,7 +331,7 @@ function LoginForm() {
             <Input
               label="Password Pengurus"
               type="password"
-              placeholder="Password..."
+              placeholder="Masukkan password..."
               value={sekretarisPass}
               onChange={(e) => setSekretarisPass(e.target.value)}
             />
@@ -360,7 +360,7 @@ function LoginForm() {
 
             <Input
               label="Username Wali Kelas"
-              placeholder="walikelas_xi_pplg1"
+              placeholder="Masukkan username wali kelas..."
               value={guruUser}
               onChange={(e) => setGuruUser(e.target.value)}
             />
@@ -368,7 +368,7 @@ function LoginForm() {
             <Input
               label="Password"
               type="password"
-              placeholder="Password..."
+              placeholder="Masukkan password..."
               value={guruPass}
               onChange={(e) => setGuruPass(e.target.value)}
             />

@@ -70,6 +70,7 @@ function SiswaAbsenContent() {
   const streamRef = useRef<MediaStream | null>(null);
   const scanIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const watchIdRef = useRef<number | null>(null);
 
   useEffect(() => {
     const currentAuth = getStoredAuth();
@@ -125,54 +126,69 @@ function SiswaAbsenContent() {
     };
   }, [searchParams]);
 
-  // Fetch GPS Geolocation when entering Step 2
-  useEffect(() => {
-    if (step === 2) {
-      fetchCurrentLocation();
-    }
-  }, [step]);
+  const processLocationCoords = (pos: GeolocationPosition) => {
+    const lat = pos.coords.latitude;
+    const lng = pos.coords.longitude;
+    const acc = Math.round(pos.coords.accuracy || 8);
+    const dist = calculateDistanceMeters(lat, lng);
+    const isWithin = dist <= APP_CONFIG.schoolLocation.radiusMeters;
 
-  const fetchCurrentLocation = () => {
-    setIsLocating(true);
+    setLocation((prev) => {
+      // Jika sebelumnya sudah dalam radius dan update baru lebih buruk/kurang akurat, jangan timpa jika akurasi jelek
+      if (prev && prev.isWithinRadius && !isWithin && acc > 100) {
+        return prev;
+      }
+      return {
+        latitude: lat,
+        longitude: lng,
+        accuracy: acc,
+        distanceMeters: dist,
+        isWithinRadius: isWithin,
+        locationName: isWithin
+          ? APP_CONFIG.schoolLocation.name
+          : `Di Luar Area Sekolah (${dist} meter)`,
+      };
+    });
+    setIsLocating(false);
+  };
 
+  const startWatchingLocation = () => {
     if (typeof window !== "undefined" && "geolocation" in navigator) {
+      setIsLocating(true);
+
+      // Stop previous watcher if active
+      if (watchIdRef.current !== null) {
+        navigator.geolocation.clearWatch(watchIdRef.current);
+        watchIdRef.current = null;
+      }
+
+      // 1. First immediate high accuracy request (maximumAge: 0 prevents stale cache)
       navigator.geolocation.getCurrentPosition(
         (pos) => {
-          const lat = pos.coords.latitude;
-          const lng = pos.coords.longitude;
-          const acc = Math.round(pos.coords.accuracy || 8);
-          const dist = calculateDistanceMeters(lat, lng);
-          const isWithin = dist <= APP_CONFIG.schoolLocation.radiusMeters;
-
-          setLocation({
-            latitude: lat,
-            longitude: lng,
-            accuracy: acc,
-            distanceMeters: dist,
-            isWithinRadius: isWithin,
-            locationName: isWithin
-              ? APP_CONFIG.schoolLocation.name
-              : `Di Luar Area Sekolah (${dist} meter)`,
-          });
-          setIsLocating(false);
+          processLocationCoords(pos);
         },
         (err) => {
-          console.warn("GPS Access fallback to simulated school location:", err);
-          const lat = APP_CONFIG.schoolLocation.latitude + 0.0001;
-          const lng = APP_CONFIG.schoolLocation.longitude + 0.0001;
-          const dist = calculateDistanceMeters(lat, lng);
-          setLocation({
-            latitude: lat,
-            longitude: lng,
-            accuracy: 8,
-            distanceMeters: dist,
-            isWithinRadius: true,
-            locationName: "SMK Negeri 1 Ciomas (Lokasi Terdeteksi)",
-          });
+          console.warn("Initial GPS fetch warning:", err);
           setIsLocating(false);
         },
-        { enableHighAccuracy: true, timeout: 8000, maximumAge: 10000 }
+        { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
       );
+
+      // 2. Active continuous high-accuracy stream to automatically refine satellite lock
+      try {
+        const watchId = navigator.geolocation.watchPosition(
+          (pos) => {
+            processLocationCoords(pos);
+          },
+          (err) => {
+            console.warn("GPS watch position update warning:", err);
+          },
+          { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
+        );
+        watchIdRef.current = watchId;
+      } catch (e) {
+        console.warn("watchPosition not available:", e);
+      }
     } else {
       const lat = APP_CONFIG.schoolLocation.latitude;
       const lng = APP_CONFIG.schoolLocation.longitude;
@@ -187,6 +203,30 @@ function SiswaAbsenContent() {
       setIsLocating(false);
     }
   };
+
+  const stopWatchingLocation = () => {
+    if (watchIdRef.current !== null && typeof window !== "undefined" && "geolocation" in navigator) {
+      navigator.geolocation.clearWatch(watchIdRef.current);
+      watchIdRef.current = null;
+    }
+  };
+
+  const fetchCurrentLocation = () => {
+    startWatchingLocation();
+  };
+
+  // Fetch GPS Geolocation & start live satellite locking when entering Step 2
+  useEffect(() => {
+    if (step === 2) {
+      startWatchingLocation();
+    } else {
+      stopWatchingLocation();
+    }
+
+    return () => {
+      stopWatchingLocation();
+    };
+  }, [step]);
 
   const setSimulatedLocation = (isAtSchool: boolean) => {
     if (isAtSchool) {

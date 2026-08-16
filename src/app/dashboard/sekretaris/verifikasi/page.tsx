@@ -28,7 +28,7 @@ import { DatePicker } from "@/components/ui/DatePicker";
 import { cn } from "@/lib/utils";
 import { getStoredAuth } from "@/lib/store";
 import { supabase } from "@/lib/supabaseClient";
-import { verifyAbsensiAction, getSignedMediaUrlAction } from "@/app/actions/absensiActions";
+import { verifyAbsensiAction, getSignedMediaUrlAction, getSignedMediaUrlsBatchAction } from "@/app/actions/absensiActions";
 import { getJakartaDateString } from "@/lib/dateUtils";
 import { AuthSession, AbsensiRecord, StatusAbsensi, JenisAbsensi } from "@/lib/types";
 
@@ -54,6 +54,9 @@ export default function SekretarisVerifikasiPage() {
       .order('waktu_absen', { ascending: false });
 
     if (dbRecords) {
+      const paths = dbRecords.map((r: any) => r.foto_storage_path).filter(Boolean);
+      const signedMap = await getSignedMediaUrlsBatchAction('absensi-selfies', paths);
+
       const mapped: AbsensiRecord[] = dbRecords.map((r: any) => ({
         id: r.id,
         siswaId: r.siswa_id,
@@ -69,7 +72,7 @@ export default function SekretarisVerifikasiPage() {
         tanggal: r.tanggal,
         waktuAbsen: r.waktu_absen,
         status: r.status as StatusAbsensi,
-        fotoUrl: r.foto_storage_path,
+        fotoUrl: signedMap[r.foto_storage_path] || r.foto_storage_path,
         timestampServer: r.created_at || r.waktu_absen,
         diverifikasiOleh: r.diverifikasi_oleh,
         waktuVerifikasi: r.waktu_verifikasi,

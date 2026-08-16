@@ -27,6 +27,7 @@ import {
   registerConsumedToken,
 } from './security';
 import { getHariEfektifBulan } from './calendarApi';
+import { getJakartaDateString } from './dateUtils';
 
 const STORAGE_KEYS = {
   AUTH: 'absensi_v6_auth_session',
@@ -526,16 +527,40 @@ export function getRekapKelas(bulan?: number, tahun?: number, customHariEfektif?
   const activeSholatDates = new Set<string>();
   monthRecords.filter(r => r.jenis === 'sholat_dzuhur').forEach(r => activeSholatDates.add(r.tanggal));
 
+  const now = new Date();
+  const todayStr = getJakartaDateString(now);
+
+  const isSessionClosed = (q: QRSesi) => {
+    if (q.tanggal < todayStr) return true;
+    if (q.tanggal > todayStr) return false;
+    if (!q.isActive) return true;
+    if (q.waktuBerakhir && now > new Date(q.waktuBerakhir)) return true;
+    return false;
+  };
+
+  // Sesi yang sudah selesai (sah untuk penetapan alpa)
+  const completedClassDates = new Set<string>();
+  monthQRSessions.filter(q => q.jenis === 'kehadiran_kelas' && isSessionClosed(q)).forEach(q => {
+    if (activeClassDates.has(q.tanggal)) completedClassDates.add(q.tanggal);
+  });
+
+  const completedSholatDates = new Set<string>();
+  monthQRSessions.filter(q => q.jenis === 'sholat_dzuhur' && isSessionClosed(q)).forEach(q => {
+    if (activeSholatDates.has(q.tanggal)) completedSholatDates.add(q.tanggal);
+  });
+
   const sesiKelasBerjalan = activeClassDates.size;
   const sesiSholatBerjalan = activeSholatDates.size;
+  const sesiKelasSelesai = completedClassDates.size;
+  const sesiSholatSelesai = completedSholatDates.size;
 
   return SEED_SISWA.map(siswa => {
     const studentRecords = monthRecords.filter(r => r.siswaId === siswa.id);
     const studentIzins = monthIzins.filter(i => i.siswaId === siswa.id);
 
-    // Kehadiran Kelas
+    // Kehadiran Kelas (Semua sesi)
     const hadirKelas = new Set(
-      studentRecords.filter(r => r.jenis === 'kehadiran_kelas' && r.status === 'verified').map(r => r.tanggal)
+      studentRecords.filter(r => r.jenis === 'kehadiran_kelas' && (r.status === 'verified' || r.status === 'pending')).map(r => r.tanggal)
     ).size;
     const sakitKelas = new Set(
       studentIzins.filter(i => i.jenis === 'Sakit').map(i => i.tanggal)
@@ -544,23 +569,42 @@ export function getRekapKelas(bulan?: number, tahun?: number, customHariEfektif?
       studentIzins.filter(i => i.jenis === 'Izin' || i.jenis === 'Dispensasi').map(i => i.tanggal)
     ).size;
 
-    // Alpa dan Persentase hanya dihitung jika sesi sudah berjalan di bulan tersebut
+    // Presensi pada sesi yang SUDAH SELESAI
+    const pastHadirKelas = new Set(
+      studentRecords.filter(r => r.jenis === 'kehadiran_kelas' && (r.status === 'verified' || r.status === 'pending') && completedClassDates.has(r.tanggal)).map(r => r.tanggal)
+    ).size;
+    const pastSakitKelas = new Set(
+      studentIzins.filter(i => i.jenis === 'Sakit' && completedClassDates.has(i.tanggal)).map(i => i.tanggal)
+    ).size;
+    const pastIzinKelas = new Set(
+      studentIzins.filter(i => (i.jenis === 'Izin' || i.jenis === 'Dispensasi') && completedClassDates.has(i.tanggal)).map(i => i.tanggal)
+    ).size;
+
+    // Alpa hanya dihitung dari sesi yang sudah selesai
     let alpaKelas = 0;
-    let persentaseKelas = 0;
-    if (sesiKelasBerjalan > 0) {
-      alpaKelas = Math.max(0, sesiKelasBerjalan - (hadirKelas + sakitKelas + izinKelas));
+    let persentaseKelas = 100;
+    if (sesiKelasSelesai > 0) {
+      alpaKelas = Math.max(0, sesiKelasSelesai - (pastHadirKelas + pastSakitKelas + pastIzinKelas));
+      persentaseKelas = Math.min(100, Math.round(((hadirKelas + sakitKelas + izinKelas) / sesiKelasSelesai) * 100));
+    } else if (sesiKelasBerjalan > 0) {
       persentaseKelas = Math.min(100, Math.round(((hadirKelas + sakitKelas + izinKelas) / sesiKelasBerjalan) * 100));
     }
 
     // Sholat Dzuhur
     const hadirSholat = new Set(
-      studentRecords.filter(r => r.jenis === 'sholat_dzuhur' && r.status === 'verified').map(r => r.tanggal)
+      studentRecords.filter(r => r.jenis === 'sholat_dzuhur' && (r.status === 'verified' || r.status === 'pending')).map(r => r.tanggal)
+    ).size;
+
+    const pastHadirSholat = new Set(
+      studentRecords.filter(r => r.jenis === 'sholat_dzuhur' && (r.status === 'verified' || r.status === 'pending') && completedSholatDates.has(r.tanggal)).map(r => r.tanggal)
     ).size;
 
     let alpaSholat = 0;
-    let persentaseSholat = 0;
-    if (sesiSholatBerjalan > 0) {
-      alpaSholat = Math.max(0, sesiSholatBerjalan - hadirSholat);
+    let persentaseSholat = 100;
+    if (sesiSholatSelesai > 0) {
+      alpaSholat = Math.max(0, sesiSholatSelesai - pastHadirSholat);
+      persentaseSholat = Math.min(100, Math.round((hadirSholat / sesiSholatSelesai) * 100));
+    } else if (sesiSholatBerjalan > 0) {
       persentaseSholat = Math.min(100, Math.round((hadirSholat / sesiSholatBerjalan) * 100));
     }
 

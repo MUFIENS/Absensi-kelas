@@ -27,7 +27,7 @@ import { DatePicker } from "@/components/ui/DatePicker";
 import { cn } from "@/lib/utils";
 import { getStoredAuth } from "@/lib/store";
 import { supabase } from "@/lib/supabaseClient";
-import { verifyAbsensiAction, getSignedMediaUrlAction } from "@/app/actions/absensiActions";
+import { verifyAbsensiAction, getSignedMediaUrlAction, getSignedMediaUrlsBatchAction } from "@/app/actions/absensiActions";
 import { getJakartaDateString } from "@/lib/dateUtils";
 import { AuthSession, AbsensiRecord, JenisAbsensi, StatusAbsensi } from "@/lib/types";
 
@@ -60,6 +60,9 @@ export default function DashboardVerifikasiPage() {
       .order('waktu_absen', { ascending: false });
 
     if (dbRecords) {
+      const paths = dbRecords.map((r: any) => r.foto_storage_path).filter(Boolean);
+      const signedMap = await getSignedMediaUrlsBatchAction('absensi-selfies', paths);
+
       const mapped: AbsensiRecord[] = dbRecords.map((r: any) => ({
         id: r.id,
         siswaId: r.siswa_id,
@@ -75,7 +78,7 @@ export default function DashboardVerifikasiPage() {
         tanggal: r.tanggal,
         waktuAbsen: r.waktu_absen,
         status: r.status as StatusAbsensi,
-        fotoUrl: r.foto_storage_path,
+        fotoUrl: signedMap[r.foto_storage_path] || r.foto_storage_path,
         timestampServer: r.created_at || r.waktu_absen,
         diverifikasiOleh: r.diverifikasi_oleh,
         waktuVerifikasi: r.waktu_verifikasi,
@@ -454,7 +457,7 @@ export default function DashboardVerifikasiPage() {
                 className="relative w-full aspect-square rounded-2xl brutal-border-2 overflow-hidden bg-neutral-900 cursor-pointer group"
               >
                 <img
-                  src={rec.fotoUrl.startsWith('data:') || rec.fotoUrl.startsWith('http') ? rec.fotoUrl : `https://ohllvcwdrxewzfbjhhsr.supabase.co/storage/v1/object/public/absensi-selfies/${rec.fotoUrl}`}
+                  src={rec.fotoUrl && (rec.fotoUrl.startsWith('data:') || rec.fotoUrl.startsWith('http')) ? rec.fotoUrl : "/placeholder-selfie.png"}
                   alt={rec.siswa.nama}
                   className="w-full h-full object-cover group-hover:scale-105 transition-transform"
                 />
