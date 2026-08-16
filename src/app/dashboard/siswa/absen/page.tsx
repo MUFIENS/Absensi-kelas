@@ -228,34 +228,6 @@ function SiswaAbsenContent() {
     };
   }, [step]);
 
-  const setSimulatedLocation = (isAtSchool: boolean) => {
-    if (isAtSchool) {
-      const lat = APP_CONFIG.schoolLocation.latitude + 0.00015;
-      const lng = APP_CONFIG.schoolLocation.longitude + 0.00012;
-      const dist = calculateDistanceMeters(lat, lng);
-      setLocation({
-        latitude: lat,
-        longitude: lng,
-        accuracy: 5,
-        distanceMeters: dist,
-        isWithinRadius: true,
-        locationName: "SMK Negeri 1 Ciomas (Gedung Ruang Kelas)",
-      });
-    } else {
-      const lat = APP_CONFIG.schoolLocation.latitude + 0.0048;
-      const lng = APP_CONFIG.schoolLocation.longitude + 0.0042;
-      const dist = calculateDistanceMeters(lat, lng);
-      setLocation({
-        latitude: lat,
-        longitude: lng,
-        accuracy: 12,
-        distanceMeters: dist,
-        isWithinRadius: false,
-        locationName: `Di Luar Radius SMKN 1 Ciomas (~${dist} meter)`,
-      });
-    }
-  };
-
   const applyToken = async (rawToken: string, isFromScannerOrUrl: boolean = false) => {
     const clean = rawToken.trim();
     setScannedToken(clean);
@@ -907,27 +879,6 @@ function SiswaAbsenContent() {
                     <RefreshCw className={`w-3.5 h-3.5 ${isLocating ? "animate-spin" : ""}`} />
                     <span>Cek Ulang GPS</span>
                   </Button>
-                </div>
-              </div>
-
-              {/* Dev Location Simulator Pill (For Testing) */}
-              <div className="mt-3 pt-2.5 border-t border-black/10 flex flex-wrap items-center justify-between gap-2 text-[11px]">
-                <span className="font-bold text-neutral-600">Uji Coba Simulasi Titik:</span>
-                <div className="flex items-center gap-1.5">
-                  <button
-                    type="button"
-                    onClick={() => setSimulatedLocation(true)}
-                    className="px-2 py-1 bg-white hover:bg-green-100 font-black text-green-800 rounded-lg border border-green-300 transition-colors"
-                  >
-                    Di Sekolah (24m)
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setSimulatedLocation(false)}
-                    className="px-2 py-1 bg-white hover:bg-red-100 font-black text-red-800 rounded-lg border border-red-300 transition-colors"
-                  >
-                    Di Luar Radius (~700m)
-                  </button>
                 </div>
               </div>
             </div>

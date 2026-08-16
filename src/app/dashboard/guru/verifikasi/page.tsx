@@ -609,15 +609,10 @@ export default function GuruVerifikasiPage() {
                     <span>Perbesar Bukti</span>
                   </div>
 
-                  {/* Geolocation Tag Overlay */}
-                  <div className="absolute bottom-2 left-2 right-2 bg-[#181818]/85 backdrop-blur-xs text-white p-1.5 rounded-xl text-[10px] font-bold flex items-center justify-between">
-                    <span className="flex items-center gap-1">
-                      <Clock className="w-3 h-3 text-[#FFD400]" />
-                      {new Date(rec.waktuAbsen).toLocaleTimeString("id-ID")} WIB
-                    </span>
-                    <span className="text-[#6FCB6F] font-black uppercase text-[9px]">
-                      LIVE CAMERA SELFIE
-                    </span>
+                  {/* Top Tag Overlay */}
+                  <div className="absolute top-2 left-2 bg-[#181818]/90 text-[#FFD400] px-2 py-0.5 rounded-lg text-[10px] font-mono font-bold flex items-center gap-1 shadow-sm">
+                    <Clock className="w-3 h-3 text-[#FFD400]" />
+                    <span>{new Date(rec.waktuAbsen).toLocaleTimeString("id-ID")} WIB</span>
                   </div>
                 </div>
 

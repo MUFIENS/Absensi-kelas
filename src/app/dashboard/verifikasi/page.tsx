@@ -464,7 +464,7 @@ export default function DashboardVerifikasiPage() {
                 <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity text-white font-black text-xs gap-1.5">
                   <Eye className="w-5 h-5" /> Klik Perbesar & Review
                 </div>
-                <div className="absolute bottom-2 left-2 bg-[#181818]/90 text-[#FFD400] text-[10px] font-mono font-bold px-2 py-0.5 rounded flex items-center gap-1">
+                <div className="absolute top-2 left-2 bg-[#181818]/90 text-[#FFD400] text-[10px] font-mono font-bold px-2 py-0.5 rounded flex items-center gap-1">
                   <Clock className="w-3 h-3" />
                   <span>{new Date(rec.waktuAbsen).toLocaleTimeString("id-ID")} WIB</span>
                 </div>

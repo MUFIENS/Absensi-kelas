@@ -24,7 +24,7 @@ import { Modal } from "@/components/ui/Modal";
 import { AppIcon } from "@/components/ui/AppIcon";
 import { getStoredAuth } from "@/lib/store";
 import { supabase } from "@/lib/supabaseClient";
-import { getSignedMediaUrlAction } from "@/app/actions/absensiActions";
+import { getSignedMediaUrlAction, getSignedMediaUrlsBatchAction } from "@/app/actions/absensiActions";
 import { AuthSession, AbsensiRecord, IzinRecord, JenisAbsensi, StatusAbsensi, KategoriIzin, Siswa } from "@/lib/types";
 
 type FilterTab = "all" | "kehadiran_kelas" | "sholat_dzuhur" | "sakit" | "izin";
@@ -60,6 +60,14 @@ export default function SiswaRiwayatPage() {
         .order('waktu_pengajuan', { ascending: false })
     ]);
 
+    const selfiePaths = (dbRecords || []).map((r: any) => r.foto_storage_path).filter(Boolean);
+    const suratPaths = (dbIzins || []).map((i: any) => i.surat_storage_path).filter(Boolean);
+
+    const [signedSelfies, signedSurats] = await Promise.all([
+      getSignedMediaUrlsBatchAction('absensi-selfies', selfiePaths),
+      getSignedMediaUrlsBatchAction('surat-izin', suratPaths),
+    ]);
+
     if (dbRecords) {
       const mapped: AbsensiRecord[] = dbRecords.map((r: any) => ({
         id: r.id,
@@ -76,7 +84,7 @@ export default function SiswaRiwayatPage() {
         tanggal: r.tanggal,
         waktuAbsen: r.waktu_absen,
         status: r.status as StatusAbsensi,
-        fotoUrl: r.foto_storage_path,
+        fotoUrl: signedSelfies[r.foto_storage_path] || r.foto_storage_path,
         timestampServer: r.created_at || r.waktu_absen,
         diverifikasiOleh: r.diverifikasi_oleh,
         waktuVerifikasi: r.waktu_verifikasi,
@@ -99,7 +107,7 @@ export default function SiswaRiwayatPage() {
         jenis: i.jenis as KategoriIzin,
         tanggal: i.tanggal,
         keterangan: i.keterangan,
-        suratFotoUrl: i.surat_storage_path,
+        suratFotoUrl: signedSurats[i.surat_storage_path] || i.surat_storage_path,
         status: i.status as StatusAbsensi,
         waktuPengajuan: i.waktu_pengajuan,
         diverifikasiOleh: i.diverifikasi_oleh,
@@ -408,7 +416,7 @@ export default function SiswaRiwayatPage() {
                   }}
                   className="w-16 h-16 rounded-2xl bg-neutral-200 brutal-border-2 overflow-hidden shrink-0 cursor-pointer relative group"
                 >
-                  {item.photoUrl ? (
+                  {item.photoUrl && (item.photoUrl.startsWith("data:") || item.photoUrl.startsWith("http")) ? (
                     <img
                       src={item.photoUrl}
                       alt={item.title}

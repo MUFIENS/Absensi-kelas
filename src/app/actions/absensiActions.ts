@@ -521,11 +521,20 @@ export async function fetchRekapKelasAction(bulan: number, tahun: number, custom
       (absensiList || []).filter(r => r.jenis === 'sholat_dzuhur').map(r => r.tanggal)
     );
 
+    // Cek jenis sesi yang saat ini masih aktif hari ini
+    const activeTodayTypes = new Set(
+      (sesiList || [])
+        .filter(s => s.tanggal === todayStr && s.is_active)
+        .map(s => s.jenis)
+    );
+
     // Cek apakah sesi sudah ditutup / berakhir
     const isSessionClosed = (s: any) => {
       if (s.tanggal < todayStr) return true;
       if (s.tanggal > todayStr) return false;
-      // Untuk hari ini: dianggap selesai jika is_active false atau waktu_berakhir telah terlewat
+      // Jika ada sesi yang masih aktif hari ini untuk jenis ini, hari ini BELUM ditutup (tidak ada alpa)
+      if (activeTodayTypes.has(s.jenis)) return false;
+      // Jika tidak ada sesi aktif, dianggap selesai jika is_active bernilai false
       if (!s.is_active) return true;
       if (s.waktu_berakhir && now > new Date(s.waktu_berakhir)) return true;
       return false;

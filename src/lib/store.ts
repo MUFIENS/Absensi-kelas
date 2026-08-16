@@ -530,9 +530,16 @@ export function getRekapKelas(bulan?: number, tahun?: number, customHariEfektif?
   const now = new Date();
   const todayStr = getJakartaDateString(now);
 
+  const activeTodayTypes = new Set(
+    monthQRSessions
+      .filter(q => q.tanggal === todayStr && q.isActive)
+      .map(q => q.jenis)
+  );
+
   const isSessionClosed = (q: QRSesi) => {
     if (q.tanggal < todayStr) return true;
     if (q.tanggal > todayStr) return false;
+    if (activeTodayTypes.has(q.jenis)) return false;
     if (!q.isActive) return true;
     if (q.waktuBerakhir && now > new Date(q.waktuBerakhir)) return true;
     return false;
