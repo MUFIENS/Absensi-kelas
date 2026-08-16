@@ -1,0 +1,33 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <rect width="512" height="512" rx="100" fill="#FFD400"/>
+  <rect x="24" y="24" width="464" height="464" rx="80" fill="#FFD400" stroke="#181818" stroke-width="20"/>
+  
+  <!-- Neo-brutalist shadow card -->
+  <rect x="86" y="86" width="350" height="350" rx="40" fill="#181818"/>
+  <rect x="76" y="76" width="350" height="350" rx="40" fill="#FFFFFF" stroke="#181818" stroke-width="16"/>
+  
+  <!-- QR Corner 1 -->
+  <rect x="120" y="120" width="80" height="80" rx="12" fill="#3355FF" stroke="#181818" stroke-width="10"/>
+  <rect x="140" y="140" width="40" height="40" rx="6" fill="#FFFFFF"/>
+  <rect x="150" y="150" width="20" height="20" rx="3" fill="#3355FF"/>
+  
+  <!-- QR Corner 2 -->
+  <rect x="302" y="120" width="80" height="80" rx="12" fill="#3355FF" stroke="#181818" stroke-width="10"/>
+  <rect x="322" y="140" width="40" height="40" rx="6" fill="#FFFFFF"/>
+  <rect x="332" y="150" width="20" height="20" rx="3" fill="#3355FF"/>
+  
+  <!-- QR Corner 3 -->
+  <rect x="120" y="302" width="80" height="80" rx="12" fill="#3355FF" stroke="#181818" stroke-width="10"/>
+  <rect x="140" y="322" width="40" height="40" rx="6" fill="#FFFFFF"/>
+  <rect x="150" y="332" width="20" height="20" rx="3" fill="#3355FF"/>
+  
+  <!-- Center Accent / Camera Icon Badge -->
+  <circle cx="342" cy="342" r="45" fill="#FF5E88" stroke="#181818" stroke-width="10"/>
+  <circle cx="342" cy="342" r="20" fill="#FFFFFF" stroke="#181818" stroke-width="6"/>
+  
+  <!-- Modern Geometric Center Lines -->
+  <rect x="232" y="130" width="38" height="38" rx="8" fill="#181818"/>
+  <rect x="232" y="196" width="38" height="110" rx="8" fill="#3355FF"/>
+  <rect x="130" y="232" width="70" height="38" rx="8" fill="#181818"/>
+  <rect x="302" y="232" width="78" height="38" rx="8" fill="#181818"/>
+</svg>

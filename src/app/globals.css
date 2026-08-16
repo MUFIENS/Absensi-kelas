@@ -1,0 +1,187 @@
+@import "tailwindcss";
+@import "lenis/dist/lenis.css";
+
+:root {
+  --color-hero-bg: #3355FF;
+  --color-intro-bg: #FFD400;
+  --color-award-bg: #FF6FA5;
+  --color-timeline-bg: #6FCB6F;
+  --color-ink: #181818;
+  --color-paper: #FFFFFF;
+  --color-accent-orange: #FF7A2E;
+  --color-accent-purple: #8B5CF6;
+  --color-light-gray: #F4F4F0;
+
+  --border-thick: 4px solid var(--color-ink);
+  --border-medium: 3px solid var(--color-ink);
+  --border-thin: 2px solid var(--color-ink);
+
+  --shadow-hard-sm: 3px 3px 0px var(--color-ink);
+  --shadow-hard: 5px 5px 0px var(--color-ink);
+  --shadow-hard-lg: 8px 8px 0px var(--color-ink);
+  --shadow-hard-xl: 12px 12px 0px var(--color-ink);
+  
+  --shadow-color-blue: 6px 6px 0px #3355FF;
+  --shadow-color-pink: 6px 6px 0px #FF6FA5;
+  --shadow-color-yellow: 6px 6px 0px #FFD400;
+  --shadow-color-green: 6px 6px 0px #6FCB6F;
+}
+
+@theme {
+  --color-brutal-blue: #3355FF;
+  --color-brutal-yellow: #FFD400;
+  --color-brutal-pink: #FF6FA5;
+  --color-brutal-green: #6FCB6F;
+  --color-brutal-orange: #FF7A2E;
+  --color-brutal-purple: #8B5CF6;
+  --color-brutal-ink: #181818;
+  --color-brutal-paper: #FFFFFF;
+  --color-brutal-gray: #F4F4F0;
+
+  --font-display: var(--font-fredoka), 'Fredoka', 'Baloo 2', system-ui, sans-serif;
+  --font-heading: var(--font-lilita), 'Lilita One', 'Fredoka', system-ui, sans-serif;
+  --font-sans: var(--font-sans), 'Plus Jakarta Sans', system-ui, sans-serif;
+  --font-fredoka: var(--font-fredoka), 'Fredoka', cursive, sans-serif;
+  --font-lilita: var(--font-lilita), 'Lilita One', cursive, sans-serif;
+}
+
+.font-fredoka {
+  font-family: var(--font-fredoka), 'Fredoka', 'Baloo 2', cursive, sans-serif;
+}
+
+.font-lilita {
+  font-family: var(--font-lilita), 'Lilita One', cursive, sans-serif;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+}
+
+body {
+  background-color: #F8F8F5;
+  color: var(--color-ink);
+  font-family: var(--font-sans), 'Plus Jakarta Sans', system-ui, sans-serif;
+  overflow-x: hidden;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Neo-Brutalist Core Classes */
+.brutal-border {
+  border: 3.5px solid var(--color-ink);
+}
+
+.brutal-border-thick {
+  border: 5px solid var(--color-ink);
+}
+
+.brutal-border-2 {
+  border: 2.5px solid var(--color-ink);
+}
+
+.brutal-shadow-sm {
+  box-shadow: var(--shadow-hard-sm);
+}
+
+.brutal-shadow {
+  box-shadow: var(--shadow-hard);
+}
+
+.brutal-shadow-lg {
+  box-shadow: var(--shadow-hard-lg);
+}
+
+.brutal-shadow-xl {
+  box-shadow: var(--shadow-hard-xl);
+}
+
+.brutal-shadow-blue {
+  box-shadow: var(--shadow-color-blue);
+}
+
+.brutal-shadow-pink {
+  box-shadow: var(--shadow-color-pink);
+}
+
+.brutal-shadow-yellow {
+  box-shadow: var(--shadow-color-yellow);
+}
+
+.brutal-shadow-green {
+  box-shadow: var(--shadow-color-green);
+}
+
+/* Press Effect */
+.brutal-btn-press {
+  transition: all 0.12s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.brutal-btn-press:hover {
+  transform: translate(-2px, -2px);
+  box-shadow: 7px 7px 0px var(--color-ink);
+}
+
+.brutal-btn-press:active {
+  transform: translate(3px, 3px);
+  box-shadow: 1px 1px 0px var(--color-ink);
+}
+
+/* Sticker / Badge Banner Rotation */
+.sticker-tilted-left {
+  transform: rotate(-2.5deg);
+}
+
+.sticker-tilted-right {
+  transform: rotate(2.5deg);
+}
+
+/* Custom Scanline for CRT Display */
+.crt-scanlines {
+  background: linear-gradient(
+    rgba(18, 16, 16, 0) 50%, 
+    rgba(0, 0, 0, 0.25) 50%
+  ), linear-gradient(
+    90deg,
+    rgba(255, 0, 0, 0.06),
+    rgba(0, 255, 0, 0.02),
+    rgba(0, 0, 255, 0.06)
+  );
+  background-size: 100% 3px, 6px 100%;
+}
+
+/* Dot grid background for sections */
+.bg-comic-dots {
+  background-image: radial-gradient(#181818 1.5px, transparent 1.5px);
+  background-size: 20px 20px;
+}
+
+.bg-comic-dots-light {
+  background-image: radial-gradient(rgba(255, 255, 255, 0.4) 1.5px, transparent 1.5px);
+  background-size: 18px 18px;
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 12px;
+  height: 12px;
+}
+
+::-webkit-scrollbar-track {
+  background: #FFD400;
+  border-left: 3px solid #181818;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #3355FF;
+  border: 3px solid #181818;
+  border-radius: 6px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #FF6FA5;
+}
