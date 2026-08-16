@@ -214,81 +214,43 @@ export default function GuruDashboardPage() {
       {/* Wali Kelas Welcome Banner */}
       <div className="bg-[#FF6FA5] text-[#181818] p-6 sm:p-8 rounded-[36px] brutal-border-thick brutal-shadow-lg relative overflow-hidden bg-comic-dots">
         <div className="relative z-10 flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
-          <div className="space-y-2">
+          <div className="space-y-2.5 flex-1 min-w-0">
             <div className="inline-flex items-center gap-2 bg-[#FFD400] text-[#181818] px-3.5 py-1 rounded-xl brutal-border-2 font-black text-xs">
               <AppIcon name="teacher" className="w-4 h-4 text-[#3355FF]" />
               <span>RUANG WALI KELAS XI PPLG 1</span>
             </div>
 
-            <h2 className="text-2xl sm:text-4xl font-black font-fredoka leading-tight tracking-tight">
+            <h2 className="text-2xl sm:text-3xl lg:text-4xl font-black font-fredoka leading-tight tracking-tight text-[#181818]">
               Selamat Datang, {auth?.user.nama || "Pak Didin S.Kom"}!
             </h2>
 
-            <p className="text-xs sm:text-sm font-bold text-neutral-800 max-w-xl">
+            <p className="text-xs sm:text-sm font-bold text-neutral-800 max-w-xl leading-relaxed">
               Pantau kedisiplinan 46 siswa XI PPLG 1, kelola sesi QR Sholat Dzuhur di mushola, serta verifikasi keaslian foto presensi secara real-time.
             </p>
           </div>
 
-          <div className="flex flex-col sm:flex-row flex-wrap items-stretch sm:items-center gap-2.5 sm:gap-3 w-full md:w-auto shrink-0">
-            {/* Backup Database Button */}
-            <button
-              type="button"
+          <div className="flex flex-col sm:flex-row md:flex-col gap-2.5 w-full md:w-56 lg:w-64 shrink-0">
+            <Link href="/dashboard/guru/qr-sholat" className="block w-full">
+              <Button
+                variant="green"
+                size="md"
+                className="w-full justify-center gap-2 font-black text-xs sm:text-sm py-3 shadow-[2.5px_2.5px_0px_#181818]"
+              >
+                <AppIcon name="mosque" className="w-4 h-4 text-green-900" />
+                <span>{sesiSholat ? "Layar QR Sholat (Aktif)" : "Buka Layar QR Sholat"}</span>
+              </Button>
+            </Link>
+
+            <Button
+              variant="white"
+              size="md"
               disabled={isBackingUp}
               onClick={handleDownloadBackup}
-              className="group relative flex items-center justify-center sm:justify-start gap-3 px-4 sm:px-5 py-3 bg-white hover:bg-neutral-50 text-[#181818] rounded-2xl brutal-border-2 brutal-shadow font-black transition-all active:translate-x-[2px] active:translate-y-[2px] active:shadow-none disabled:opacity-60 cursor-pointer"
+              className="w-full justify-center gap-2 font-black text-xs sm:text-sm py-3 shadow-[2.5px_2.5px_0px_#181818]"
             >
-              <div className="w-9 h-9 rounded-xl bg-[#3355FF] text-white brutal-border-2 flex items-center justify-center shadow-[1.5px_1.5px_0px_#181818] shrink-0 group-hover:scale-105 transition-transform">
-                <Download className={`w-4 h-4 text-white stroke-[2.5] ${isBackingUp ? "animate-bounce" : ""}`} />
-              </div>
-              <div className="text-left">
-                <span className="text-[10px] text-neutral-500 font-extrabold uppercase block tracking-wider leading-none mb-1">
-                  Keamanan Data
-                </span>
-                <span className="text-xs sm:text-sm font-black font-fredoka text-[#181818] block leading-tight">
-                  {isBackingUp ? "Mengekspor JSON..." : "Cadangkan Database"}
-                </span>
-              </div>
-            </button>
-
-            {/* Ekspor Rekap Button */}
-            <Link href="/dashboard/guru/rekap" className="block">
-              <button
-                type="button"
-                className="w-full group relative flex items-center justify-center sm:justify-start gap-3 px-4 sm:px-5 py-3 bg-[#FFD400] hover:bg-[#ffe033] text-[#181818] rounded-2xl brutal-border-2 brutal-shadow font-black transition-all active:translate-x-[2px] active:translate-y-[2px] active:shadow-none cursor-pointer"
-              >
-                <div className="w-9 h-9 rounded-xl bg-white text-[#181818] brutal-border-2 flex items-center justify-center shadow-[1.5px_1.5px_0px_#181818] shrink-0 group-hover:scale-105 transition-transform">
-                  <FileSpreadsheet className="w-4 h-4 text-emerald-700 stroke-[2.5]" />
-                </div>
-                <div className="text-left">
-                  <span className="text-[10px] text-neutral-800 font-extrabold uppercase block tracking-wider leading-none mb-1">
-                    Laporan
-                  </span>
-                  <span className="text-xs sm:text-sm font-black font-fredoka text-[#181818] block leading-tight">
-                    Ekspor Rekap
-                  </span>
-                </div>
-              </button>
-            </Link>
-
-            {/* QR Sholat Button */}
-            <Link href="/dashboard/guru/qr-sholat" className="block">
-              <button
-                type="button"
-                className="w-full group relative flex items-center justify-center sm:justify-start gap-3 px-4 sm:px-5 py-3 bg-[#6FCB6F] hover:bg-[#5db85d] text-[#181818] rounded-2xl brutal-border-2 brutal-shadow font-black transition-all active:translate-x-[2px] active:translate-y-[2px] active:shadow-none cursor-pointer"
-              >
-                <div className="w-9 h-9 rounded-xl bg-white text-[#181818] brutal-border-2 flex items-center justify-center shadow-[1.5px_1.5px_0px_#181818] shrink-0 group-hover:scale-105 transition-transform">
-                  <AppIcon name="mosque" className="w-5 h-5 text-green-700" />
-                </div>
-                <div className="text-left">
-                  <span className="text-[10px] text-neutral-800 font-extrabold uppercase block tracking-wider leading-none mb-1">
-                    Sesi Mushola
-                  </span>
-                  <span className="text-xs sm:text-sm font-black font-fredoka text-[#181818] block leading-tight">
-                    {sesiSholat ? "QR Sholat (Aktif)" : "Layar QR Sholat"}
-                  </span>
-                </div>
-              </button>
-            </Link>
+              <Download className={`w-4 h-4 text-[#3355FF] stroke-[2.5] ${isBackingUp ? "animate-bounce" : ""}`} />
+              <span>{isBackingUp ? "Mengekspor JSON..." : "Cadangkan Database"}</span>
+            </Button>
           </div>
         </div>
       </div>
