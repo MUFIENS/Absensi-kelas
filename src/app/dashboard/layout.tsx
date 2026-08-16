@@ -84,13 +84,17 @@ export default function DashboardLayout({
   }
 
   // Role Access Guard Verification
-  const isGuruRoute = pathname.startsWith("/dashboard/guru");
+  const isRekapRoute = pathname === "/dashboard/guru/rekap" || pathname.startsWith("/dashboard/rekap");
+  const isGuruOnlyRoute = pathname.startsWith("/dashboard/guru") && !isRekapRoute;
   const isSekretarisRoute = pathname.startsWith("/dashboard/sekretaris");
   const isSiswaRoute = pathname.startsWith("/dashboard/siswa");
-  const isManagementRoute = pathname.startsWith("/dashboard/verifikasi") || pathname.startsWith("/dashboard/rekap");
+  const isManagementRoute =
+    pathname.startsWith("/dashboard/verifikasi") ||
+    pathname.startsWith("/dashboard/rekap") ||
+    isRekapRoute;
 
   const hasAccess =
-    (!isGuruRoute || auth.role === "wali_kelas") &&
+    (!isGuruOnlyRoute || auth.role === "wali_kelas") &&
     (!isSekretarisRoute || auth.role === "admin") &&
     (!isSiswaRoute || auth.role === "siswa") &&
     (!isManagementRoute || auth.role === "admin" || auth.role === "wali_kelas");

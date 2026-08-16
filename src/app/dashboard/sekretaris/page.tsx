@@ -145,19 +145,21 @@ export default function DashboardSekretarisPage() {
         </div>
       </div>
 
-      {/* 3 Quick Action Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <Card variant="white" shadow="lg" className="space-y-4">
-          <div className="w-12 h-12 rounded-2xl bg-[#3355FF] text-white flex items-center justify-center brutal-border brutal-shadow-sm">
-            <QrCode className="w-6 h-6 stroke-[2.5]" />
-          </div>
-          <div>
-            <h3 className="text-lg font-black font-fredoka text-[#181818]">
-              1. Layar Proyektor Kelas
-            </h3>
-            <p className="text-xs font-bold text-neutral-600 mt-1">
-              Nyalakan QR Code sesi pagi di proyektor depan kelas. Dilengkapi timer otomatis anti-screenshot.
-            </p>
+      {/* 4 Quick Action Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <Card variant="white" shadow="lg" className="space-y-4 flex flex-col justify-between">
+          <div className="space-y-4">
+            <div className="w-12 h-12 rounded-2xl bg-[#3355FF] text-white flex items-center justify-center brutal-border brutal-shadow-sm">
+              <QrCode className="w-6 h-6 stroke-[2.5]" />
+            </div>
+            <div>
+              <h3 className="text-lg font-black font-fredoka text-[#181818]">
+                1. Layar Proyektor Kelas
+              </h3>
+              <p className="text-xs font-bold text-neutral-600 mt-1">
+                Nyalakan QR Code sesi pagi di proyektor depan kelas. Dilengkapi timer otomatis anti-screenshot.
+              </p>
+            </div>
           </div>
           <Link href="/dashboard/sekretaris/qr-kelas" className="block pt-2">
             <Button variant="primary" size="md" className="w-full justify-center gap-2 text-xs font-black">
@@ -167,17 +169,19 @@ export default function DashboardSekretarisPage() {
           </Link>
         </Card>
 
-        <Card variant="white" shadow="lg" className="space-y-4">
-          <div className="w-12 h-12 rounded-2xl bg-[#FFD400] text-[#181818] flex items-center justify-center brutal-border brutal-shadow-sm">
-            <ShieldCheck className="w-6 h-6 stroke-[2.5]" />
-          </div>
-          <div>
-            <h3 className="text-lg font-black font-fredoka text-[#181818]">
-              2. Verifikasi Selfie ({pendingRecords.length})
-            </h3>
-            <p className="text-xs font-bold text-neutral-600 mt-1">
-              Cek keaslian foto wajah dan radius GPS teman sekelas yang baru aja ngirim presensi.
-            </p>
+        <Card variant="white" shadow="lg" className="space-y-4 flex flex-col justify-between">
+          <div className="space-y-4">
+            <div className="w-12 h-12 rounded-2xl bg-[#FFD400] text-[#181818] flex items-center justify-center brutal-border brutal-shadow-sm">
+              <ShieldCheck className="w-6 h-6 stroke-[2.5]" />
+            </div>
+            <div>
+              <h3 className="text-lg font-black font-fredoka text-[#181818]">
+                2. Verifikasi Selfie ({pendingRecords.length})
+              </h3>
+              <p className="text-xs font-bold text-neutral-600 mt-1">
+                Cek keaslian foto wajah dan radius GPS teman sekelas yang baru aja ngirim presensi.
+              </p>
+            </div>
           </div>
           <Link href="/dashboard/sekretaris/verifikasi" className="block pt-2">
             <Button variant="yellow" size="md" className="w-full justify-center gap-2 text-xs font-black">
@@ -187,21 +191,45 @@ export default function DashboardSekretarisPage() {
           </Link>
         </Card>
 
-        <Card variant="white" shadow="lg" className="space-y-4">
-          <div className="w-12 h-12 rounded-2xl bg-[#6FCB6F] text-[#181818] flex items-center justify-center brutal-border brutal-shadow-sm">
-            <FileText className="w-6 h-6 stroke-[2.5]" />
-          </div>
-          <div>
-            <h3 className="text-lg font-black font-fredoka text-[#181818]">
-              3. Catat Surat Izin / Sakit
-            </h3>
-            <p className="text-xs font-bold text-neutral-600 mt-1">
-              Input data siswa yang berhalangan hadir beserta lampiran foto surat dokter atau surat ortu.
-            </p>
+        <Card variant="white" shadow="lg" className="space-y-4 flex flex-col justify-between">
+          <div className="space-y-4">
+            <div className="w-12 h-12 rounded-2xl bg-[#6FCB6F] text-[#181818] flex items-center justify-center brutal-border brutal-shadow-sm">
+              <FileText className="w-6 h-6 stroke-[2.5]" />
+            </div>
+            <div>
+              <h3 className="text-lg font-black font-fredoka text-[#181818]">
+                3. Catat Surat Izin / Sakit
+              </h3>
+              <p className="text-xs font-bold text-neutral-600 mt-1">
+                Input data siswa yang berhalangan hadir beserta lampiran foto surat dokter atau surat ortu.
+              </p>
+            </div>
           </div>
           <Link href="/dashboard/sekretaris/izin" className="block pt-2">
             <Button variant="green" size="md" className="w-full justify-center gap-2 text-xs font-black">
               <span>Input Izin / Sakit</span>
+              <ArrowRight className="w-4 h-4" />
+            </Button>
+          </Link>
+        </Card>
+
+        <Card variant="white" shadow="lg" className="space-y-4 flex flex-col justify-between">
+          <div className="space-y-4">
+            <div className="w-12 h-12 rounded-2xl bg-[#FF6FA5] text-[#181818] flex items-center justify-center brutal-border brutal-shadow-sm">
+              <FileSpreadsheet className="w-6 h-6 stroke-[2.5]" />
+            </div>
+            <div>
+              <h3 className="text-lg font-black font-fredoka text-[#181818]">
+                4. Rekapitulasi 46 Siswa
+              </h3>
+              <p className="text-xs font-bold text-neutral-600 mt-1">
+                Hitung persentase kehadiran bulanan, rincian sakit/izin/alpa, dan export ke file Excel (.xls).
+              </p>
+            </div>
+          </div>
+          <Link href="/dashboard/guru/rekap" className="block pt-2">
+            <Button variant="pink" size="md" className="w-full justify-center gap-2 text-xs font-black">
+              <span>Buka Master Rekap</span>
               <ArrowRight className="w-4 h-4" />
             </Button>
           </Link>

@@ -139,8 +139,11 @@ export async function createQRSesiAction(params: {
   const todayStr = now.toISOString().split('T')[0];
   const startTime = now.toISOString();
   const endTime = new Date(now.getTime() + params.durationMinutes * 60000).toISOString();
-  const token = `qr_${params.jenis}_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
-  const qrUrl = `https://absensi-xipplg1.app/scan?token=${token}`;
+  const prefix = params.jenis === 'kehadiran_kelas' ? 'KLAS' : 'SHLT';
+  const dateCode = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}`;
+  const randomCode = Math.random().toString(36).substring(2, 6).toUpperCase();
+  const token = `${prefix}-${dateCode}-${randomCode}`;
+  const qrUrl = `/dashboard/siswa/absen?token=${token}`;
 
   // Nonaktifkan sesi aktif sebelumnya untuk jenis yang sama hari ini
   await supabase

@@ -529,8 +529,9 @@ export default function GuruQRSholatPage() {
               }`}>
                 <QRCodeSVG
                   value={
-                    activeSession.qrUrl ||
-                    `https://absensi.xipplg1.sch.id/scan?token=${activeSession.token}`
+                    typeof window !== "undefined"
+                      ? `${window.location.origin}/dashboard/siswa/absen?token=${activeSession.token}`
+                      : activeSession.token
                   }
                   size={200}
                   level="H"
