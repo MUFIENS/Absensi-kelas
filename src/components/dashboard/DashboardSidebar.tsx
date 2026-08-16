@@ -204,7 +204,7 @@ export function DashboardSidebar({
           )}
 
           {/* Dynamic Nav Menu */}
-          <nav className="space-y-2 pt-2">
+          <nav className="space-y-2.5 pt-2 pb-4">
             <p className="text-[10px] font-black uppercase tracking-widest text-[#181818]/70 px-1">
               NAVIGASI {auth?.role === "siswa" ? "SISWA" : auth?.role === "admin" ? "SEKRETARIS" : "WALI KELAS"}
             </p>
@@ -246,7 +246,7 @@ export function DashboardSidebar({
         </div>
 
         {/* Bottom Actions */}
-        <div className="pt-6 space-y-2 border-t-3 border-[#181818]">
+        <div className="mt-4 pt-4 space-y-2 border-t-3 border-[#181818] shrink-0">
           <Link
             href="/"
             className="w-full py-2.5 px-3 bg-white text-[#181818] font-black text-xs rounded-xl brutal-border-2 flex items-center justify-center gap-1.5 hover:bg-neutral-50"

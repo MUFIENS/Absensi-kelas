@@ -518,15 +518,13 @@ export function getRekapKelas(bulan?: number, tahun?: number, customHariEfektif?
     return qYear === targetTahun && qMonth === targetBulan;
   });
 
-  // Calculate distinct dates where class / prayer sessions took place in that specific month
+  // Calculate distinct dates where class / prayer sessions took place with actual recorded activity
   const activeClassDates = new Set<string>();
   monthRecords.filter(r => r.jenis === 'kehadiran_kelas').forEach(r => activeClassDates.add(r.tanggal));
   monthIzins.forEach(i => activeClassDates.add(i.tanggal));
-  monthQRSessions.filter(q => q.jenis === 'kehadiran_kelas').forEach(q => activeClassDates.add(q.tanggal));
 
   const activeSholatDates = new Set<string>();
   monthRecords.filter(r => r.jenis === 'sholat_dzuhur').forEach(r => activeSholatDates.add(r.tanggal));
-  monthQRSessions.filter(q => q.jenis === 'sholat_dzuhur').forEach(q => activeSholatDates.add(q.tanggal));
 
   const sesiKelasBerjalan = activeClassDates.size;
   const sesiSholatBerjalan = activeSholatDates.size;

@@ -24,7 +24,7 @@ import { AppIcon } from "@/components/ui/AppIcon";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
-import { exportDatabaseBackupAction } from "@/app/actions/absensiActions";
+import { exportDatabaseBackupAction, fetchRekapKelasAction } from "@/app/actions/absensiActions";
 import {
   getStoredAuth,
   getAbsensiRecords,
@@ -45,11 +45,27 @@ export default function GuruDashboardPage() {
   const todayStr = new Date().toLocaleDateString("en-CA");
 
   useEffect(() => {
-    setAuth(getStoredAuth());
+    const currentAuth = getStoredAuth();
+    setAuth(currentAuth);
     setRecords(getAbsensiRecords());
-    setRekap(getRekapKelas());
     setSesiKelas(getActiveQRSesi("kehadiran_kelas"));
     setSesiSholat(getActiveQRSesi("sholat_dzuhur"));
+
+    const loadLiveRekap = async () => {
+      const now = new Date();
+      try {
+        const res = await fetchRekapKelasAction(now.getMonth() + 1, now.getFullYear());
+        if (res.success && res.rekap) {
+          setRekap(res.rekap);
+        } else {
+          setRekap(getRekapKelas());
+        }
+      } catch {
+        setRekap(getRekapKelas());
+      }
+    };
+
+    loadLiveRekap();
   }, []);
 
   // Filter records by today and session types
@@ -69,9 +85,11 @@ export default function GuruDashboardPage() {
 
   const totalPendingToday = records.filter((r) => r.status === "pending").length;
 
-  // Siswa needing attention (attendance rate < 80%)
+  // Siswa needing attention (attendance rate < 80% ONLY if attendance sessions have actually run)
   const lowAttendanceStudents = rekap.filter(
-    (r) => r.kehadiranKelas.persentase < 80 || r.sholatDzuhur.persentase < 80
+    (r) =>
+      ((r.kehadiranKelas.hariBerjalan ?? 0) > 0 && r.kehadiranKelas.persentase < 80) ||
+      ((r.sholatDzuhur.hariBerjalan ?? 0) > 0 && r.sholatDzuhur.persentase < 80)
   );
 
   const [isBackingUp, setIsBackingUp] = useState<boolean>(false);
@@ -270,83 +288,95 @@ export default function GuruDashboardPage() {
       </div>
 
       {/* 4 Summary Stats Cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
         {/* Total Hadir Kelas */}
-        <div className="bg-white p-5 rounded-3xl brutal-border-thick brutal-shadow flex flex-col justify-between">
+        <div className="bg-white p-3.5 sm:p-5 rounded-3xl brutal-border-thick brutal-shadow flex flex-col justify-between gap-3">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-black text-neutral-500 uppercase">Kehadiran Kelas</span>
-            <div className="w-9 h-9 rounded-xl bg-[#FF6FA5] text-[#181818] flex items-center justify-center brutal-border-2">
-              <Sun className="w-5 h-5 stroke-[2.5]" />
+            <span className="text-[10px] sm:text-xs font-black text-neutral-500 uppercase tracking-wider">
+              Hadir Kelas
+            </span>
+            <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-[#FF6FA5] text-[#181818] flex items-center justify-center brutal-border-2 shrink-0">
+              <Sun className="w-4 h-4 sm:w-5 sm:h-5 stroke-[2.5]" />
             </div>
           </div>
-          <div className="mt-3">
-            <p className="text-3xl font-black font-fredoka text-[#181818]">
-              {hadirKelasVerified} <span className="text-sm font-bold text-neutral-500">/ 46</span>
+          <div className="space-y-1.5">
+            <p className="text-2xl sm:text-3xl font-black font-fredoka text-[#181818] leading-none">
+              {hadirKelasVerified} <span className="text-xs sm:text-sm font-bold text-neutral-500">/ 46</span>
             </p>
-            <p className="text-[11px] font-bold text-green-600 mt-1">
-              {Math.round((hadirKelasVerified / 46) * 100)}% Terverifikasi Sah
-            </p>
+            <div className="inline-flex items-center gap-1 px-2 py-0.5 bg-green-50 text-green-700 font-extrabold text-[10px] sm:text-[11px] rounded-lg brutal-border-2 border-green-300 w-full justify-between">
+              <span>Status</span>
+              <span>{Math.round((hadirKelasVerified / 46) * 100)}% Sah</span>
+            </div>
           </div>
         </div>
 
         {/* Total Hadir Sholat */}
-        <div className="bg-white p-5 rounded-3xl brutal-border-thick brutal-shadow flex flex-col justify-between">
+        <div className="bg-white p-3.5 sm:p-5 rounded-3xl brutal-border-thick brutal-shadow flex flex-col justify-between gap-3">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-black text-neutral-500 uppercase">Hadir di Mushola</span>
-            <div className="w-9 h-9 rounded-xl bg-[#6FCB6F] text-[#181818] flex items-center justify-center brutal-border-2">
-              <AppIcon name="mosque" className="w-5 h-5" />
+            <span className="text-[10px] sm:text-xs font-black text-neutral-500 uppercase tracking-wider">
+              Hadir Sholat
+            </span>
+            <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-[#6FCB6F] text-[#181818] flex items-center justify-center brutal-border-2 shrink-0">
+              <AppIcon name="mosque" className="w-4 h-4 sm:w-5 sm:h-5" />
             </div>
           </div>
-          <div className="mt-3">
-            <p className="text-3xl font-black font-fredoka text-[#181818]">
-              {hadirSholatVerified} <span className="text-sm font-bold text-neutral-500">/ 46</span>
+          <div className="space-y-1.5">
+            <p className="text-2xl sm:text-3xl font-black font-fredoka text-[#181818] leading-none">
+              {hadirSholatVerified} <span className="text-xs sm:text-sm font-bold text-neutral-500">/ 46</span>
             </p>
-            <p className="text-[11px] font-bold text-green-600 mt-1">
-              {Math.round((hadirSholatVerified / 46) * 100)}% Jamaah Dzuhur
-            </p>
+            <div className="inline-flex items-center gap-1 px-2 py-0.5 bg-emerald-50 text-emerald-700 font-extrabold text-[10px] sm:text-[11px] rounded-lg brutal-border-2 border-emerald-300 w-full justify-between">
+              <span>Mushola</span>
+              <span>{Math.round((hadirSholatVerified / 46) * 100)}% Jamaah</span>
+            </div>
           </div>
         </div>
 
         {/* Antrian Selfie Masuk */}
-        <div className="bg-white p-5 rounded-3xl brutal-border-thick brutal-shadow flex flex-col justify-between">
+        <div className="bg-white p-3.5 sm:p-5 rounded-3xl brutal-border-thick brutal-shadow flex flex-col justify-between gap-3">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-black text-neutral-500 uppercase">Antrian Foto Masuk</span>
-            <div className="w-9 h-9 rounded-xl bg-[#FFD400] text-[#181818] flex items-center justify-center brutal-border-2">
-              <Clock className="w-5 h-5 stroke-[2.5]" />
+            <span className="text-[10px] sm:text-xs font-black text-neutral-500 uppercase tracking-wider">
+              Antrian Selfie
+            </span>
+            <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-[#FFD400] text-[#181818] flex items-center justify-center brutal-border-2 shrink-0">
+              <Clock className="w-4 h-4 sm:w-5 sm:h-5 stroke-[2.5]" />
             </div>
           </div>
-          <div className="mt-3 space-y-2">
-            <p className="text-3xl font-black font-fredoka text-amber-600">
-              {totalPendingToday} <span className="text-sm font-bold text-neutral-500">Selfie</span>
+          <div className="space-y-1.5">
+            <p className="text-2xl sm:text-3xl font-black font-fredoka text-amber-600 leading-none">
+              {totalPendingToday} <span className="text-xs sm:text-sm font-bold text-neutral-500">Selfie</span>
             </p>
             <Link
               href="/dashboard/guru/verifikasi"
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-[#3355FF] text-white hover:bg-blue-600 text-[11px] font-black rounded-xl brutal-border-2 shadow-[2px_2px_0px_#181818] active:translate-x-[1px] active:translate-y-[1px] active:shadow-none transition-all group/btn"
+              className="inline-flex items-center justify-between px-2.5 py-1 bg-[#3355FF] text-white hover:bg-blue-600 text-[10px] sm:text-[11px] font-black rounded-lg brutal-border-2 shadow-[1.5px_1.5px_0px_#181818] active:translate-x-[1px] active:translate-y-[1px] active:shadow-none transition-all group/btn w-full"
             >
-              <ShieldCheck className="w-3.5 h-3.5 text-white" />
-              <span>Cek Keaslian Foto</span>
-              <ArrowRight className="w-3 h-3 group-hover/btn:translate-x-0.5 transition-transform" />
+              <span>Verifikasi</span>
+              <ArrowRight className="w-3 h-3 group-hover/btn:translate-x-0.5 transition-transform shrink-0" />
             </Link>
           </div>
         </div>
 
         {/* Siswa Perlu Perhatian */}
-        <div className="bg-white p-5 rounded-3xl brutal-border-thick brutal-shadow flex flex-col justify-between">
+        <div className="bg-white p-3.5 sm:p-5 rounded-3xl brutal-border-thick brutal-shadow flex flex-col justify-between gap-3">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-black text-neutral-500 uppercase">Perlu Perhatian</span>
-            <div className="w-9 h-9 rounded-xl bg-red-100 text-red-600 flex items-center justify-center brutal-border-2 border-red-300">
-              <AlertCircle className="w-5 h-5 stroke-[2.5]" />
+            <span className="text-[10px] sm:text-xs font-black text-neutral-500 uppercase tracking-wider">
+              Perlu Perhatian
+            </span>
+            <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-red-100 text-red-600 flex items-center justify-center brutal-border-2 border-red-300 shrink-0">
+              <AlertCircle className="w-4 h-4 sm:w-5 sm:h-5 stroke-[2.5]" />
             </div>
           </div>
-          <div className="mt-3">
-            <p className="text-3xl font-black font-fredoka text-red-500">
-              {lowAttendanceStudents.length} <span className="text-sm font-bold text-neutral-500">Siswa</span>
+          <div className="space-y-1.5">
+            <p className="text-2xl sm:text-3xl font-black font-fredoka text-red-500 leading-none">
+              {lowAttendanceStudents.length} <span className="text-xs sm:text-sm font-bold text-neutral-500">Siswa</span>
             </p>
             <Link
               href="/dashboard/guru/rekap"
-              className="text-[11px] font-bold text-neutral-500 hover:text-[#3355FF] hover:underline mt-1 block"
+              className="inline-flex items-center justify-between px-2 py-1 bg-red-50 text-red-700 hover:bg-red-100 text-[10px] sm:text-[11px] font-black rounded-lg brutal-border-2 border-red-300 transition-all group/btn w-full"
             >
-              Kehadiran &lt; 80% • Cek Rekap →
+              <span className="truncate">Presensi &lt; 80%</span>
+              <span className="flex items-center gap-1 shrink-0 font-bold">
+                Cek <ArrowRight className="w-3 h-3 group-hover/btn:translate-x-0.5 transition-transform" />
+              </span>
             </Link>
           </div>
         </div>

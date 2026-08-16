@@ -472,12 +472,31 @@ export async function fetchRekapKelasAction(bulan: number, tahun: number, custom
     ? customHariEfektif
     : hariEfektifInfo.totalHariEfektif;
 
-  // Hitung jumlah hari berjalan unik
-  const tanggalSesiKelas = new Set(
-    (sesiList || []).filter(s => s.jenis === 'kehadiran_kelas').map(s => s.tanggal)
+  // Tanggal unik yang memiliki presensi / izin masuk
+  const tanggalAdaPresensiKelas = new Set(
+    (absensiList || []).filter(r => r.jenis === 'kehadiran_kelas').map(r => r.tanggal)
   );
+  const tanggalAdaIzin = new Set(
+    (izinList || []).filter(r => r.status === 'verified').map(r => r.tanggal)
+  );
+  const tanggalAdaPresensiSholat = new Set(
+    (absensiList || []).filter(r => r.jenis === 'sholat_dzuhur').map(r => r.tanggal)
+  );
+
+  // Hari berjalan kelas hanya dihitung jika ada sesi yang sah dan terdapat aktivitas presensi/izin
+  const tanggalSesiKelas = new Set(
+    (sesiList || [])
+      .filter(s => s.jenis === 'kehadiran_kelas')
+      .filter(s => tanggalAdaPresensiKelas.has(s.tanggal) || tanggalAdaIzin.has(s.tanggal))
+      .map(s => s.tanggal)
+  );
+
+  // Hari berjalan sholat dzuhur hanya dihitung jika ada aktivitas presensi sholat
   const tanggalSesiSholat = new Set(
-    (sesiList || []).filter(s => s.jenis === 'sholat_dzuhur').map(s => s.tanggal)
+    (sesiList || [])
+      .filter(s => s.jenis === 'sholat_dzuhur')
+      .filter(s => tanggalAdaPresensiSholat.has(s.tanggal))
+      .map(s => s.tanggal)
   );
 
   const sesiKelasBerjalan = tanggalSesiKelas.size;
