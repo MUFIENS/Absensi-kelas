@@ -530,6 +530,10 @@ export function getRekapKelas(bulan?: number, tahun?: number, customHariEfektif?
   const now = new Date();
   const todayStr = getJakartaDateString(now);
 
+  const hariEfektifDates = new Set(
+    hariEfektifInfo.detailHari.filter(d => d.isEfektif).map(d => d.tanggal)
+  );
+
   const activeTodayTypes = new Set(
     monthQRSessions
       .filter(q => q.tanggal === todayStr && q.isActive)
@@ -547,12 +551,12 @@ export function getRekapKelas(bulan?: number, tahun?: number, customHariEfektif?
 
   // Sesi yang sudah selesai (sah untuk penetapan alpa)
   const completedClassDates = new Set<string>();
-  monthQRSessions.filter(q => q.jenis === 'kehadiran_kelas' && isSessionClosed(q)).forEach(q => {
+  monthQRSessions.filter(q => q.jenis === 'kehadiran_kelas' && isSessionClosed(q) && hariEfektifDates.has(q.tanggal)).forEach(q => {
     if (activeClassDates.has(q.tanggal)) completedClassDates.add(q.tanggal);
   });
 
   const completedSholatDates = new Set<string>();
-  monthQRSessions.filter(q => q.jenis === 'sholat_dzuhur' && isSessionClosed(q)).forEach(q => {
+  monthQRSessions.filter(q => q.jenis === 'sholat_dzuhur' && isSessionClosed(q) && hariEfektifDates.has(q.tanggal)).forEach(q => {
     if (activeSholatDates.has(q.tanggal)) completedSholatDates.add(q.tanggal);
   });
 

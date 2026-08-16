@@ -183,17 +183,30 @@ export default function DashboardSekretarisPage() {
         <div className="bg-white p-5 rounded-3xl brutal-border-thick brutal-shadow flex flex-col justify-between">
           <div className="flex items-center justify-between">
             <span className="text-xs font-black text-neutral-500 uppercase">Status Token QR</span>
-            <div className="w-9 h-9 rounded-xl bg-[#6FCB6F] text-[#181818] flex items-center justify-center brutal-border-2">
+            <div className={`w-9 h-9 rounded-xl ${activeSesi ? "bg-[#6FCB6F] text-[#181818]" : "bg-neutral-200 text-neutral-500"} flex items-center justify-center brutal-border-2`}>
               <QrCode className="w-5 h-5 stroke-[2.5]" />
             </div>
           </div>
           <div className="mt-3">
-            <p className="text-sm font-black text-[#181818] font-mono">
-              {activeSesi ? activeSesi.token : "KLAS-AKTIF"}
-            </p>
-            <p className="text-[11px] font-bold text-green-600 mt-1">
-              Siap di Proyektor
-            </p>
+            {activeSesi ? (
+              <>
+                <p className="text-sm font-black text-[#181818] font-mono">
+                  {activeSesi.token}
+                </p>
+                <p className="text-[11px] font-bold text-green-600 mt-1">
+                  Aktif • Siap di Proyektor
+                </p>
+              </>
+            ) : (
+              <>
+                <p className="text-sm font-black text-neutral-400 font-mono">
+                  BELUM AKTIF
+                </p>
+                <p className="text-[11px] font-bold text-neutral-400 mt-1">
+                  Sesi Belum Dibuat
+                </p>
+              </>
+            )}
           </div>
         </div>
 

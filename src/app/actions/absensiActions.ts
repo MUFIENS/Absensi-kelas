@@ -507,6 +507,11 @@ export async function fetchRekapKelasAction(bulan: number, tahun: number, custom
       ? customHariEfektif
       : hariEfektifInfo.totalHariEfektif;
 
+    // Set tanggal-tanggal hari efektif resmi sekolah
+    const hariEfektifDates = new Set(
+      hariEfektifInfo.detailHari.filter(d => d.isEfektif).map(d => d.tanggal)
+    );
+
     const now = new Date();
     const todayStr = getJakartaDateString(now);
 
@@ -543,7 +548,7 @@ export async function fetchRekapKelasAction(bulan: number, tahun: number, custom
     // Tanggal sesi kelas yang SUDAH SELESAI (sah untuk penetapan Alpa)
     const tanggalSesiKelasSelesai = new Set(
       (sesiList || [])
-        .filter(s => s.jenis === 'kehadiran_kelas' && isSessionClosed(s))
+        .filter(s => s.jenis === 'kehadiran_kelas' && isSessionClosed(s) && (hariEfektifDates.has(s.tanggal) || customHariEfektif !== undefined))
         .filter(s => tanggalAdaPresensiKelas.has(s.tanggal) || tanggalAdaIzin.has(s.tanggal))
         .map(s => s.tanggal)
     );
@@ -551,7 +556,7 @@ export async function fetchRekapKelasAction(bulan: number, tahun: number, custom
     // Tanggal sesi kelas total (termasuk yang sedang aktif saat ini)
     const tanggalSesiKelasTotal = new Set(
       (sesiList || [])
-        .filter(s => s.jenis === 'kehadiran_kelas')
+        .filter(s => s.jenis === 'kehadiran_kelas' && (hariEfektifDates.has(s.tanggal) || customHariEfektif !== undefined))
         .filter(s => tanggalAdaPresensiKelas.has(s.tanggal) || tanggalAdaIzin.has(s.tanggal))
         .map(s => s.tanggal)
     );
@@ -559,14 +564,14 @@ export async function fetchRekapKelasAction(bulan: number, tahun: number, custom
     // Tanggal sesi sholat yang SUDAH SELESAI
     const tanggalSesiSholatSelesai = new Set(
       (sesiList || [])
-        .filter(s => s.jenis === 'sholat_dzuhur' && isSessionClosed(s))
+        .filter(s => s.jenis === 'sholat_dzuhur' && isSessionClosed(s) && (hariEfektifDates.has(s.tanggal) || customHariEfektif !== undefined))
         .filter(s => tanggalAdaPresensiSholat.has(s.tanggal))
         .map(s => s.tanggal)
     );
 
     const tanggalSesiSholatTotal = new Set(
       (sesiList || [])
-        .filter(s => s.jenis === 'sholat_dzuhur')
+        .filter(s => s.jenis === 'sholat_dzuhur' && (hariEfektifDates.has(s.tanggal) || customHariEfektif !== undefined))
         .filter(s => tanggalAdaPresensiSholat.has(s.tanggal))
         .map(s => s.tanggal)
     );

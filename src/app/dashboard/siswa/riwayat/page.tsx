@@ -44,8 +44,14 @@ export default function SiswaRiwayatPage() {
   const studentId = auth && auth.role === "siswa" ? auth.user.id : 0;
 
   const loadData = async (sid?: number) => {
-    const targetSid = sid || studentId;
+    const currentAuth = getStoredAuth();
+    const targetSid = sid || (currentAuth?.role === "siswa" ? currentAuth.user.id : 0) || studentId;
     if (!targetSid) return;
+
+    const studentName = (currentAuth?.role === "siswa" ? currentAuth.user.nama : "") || auth?.user.nama || "Siswa";
+    const studentNis = (currentAuth?.user as Siswa)?.nis || "";
+    const studentAbsen = (currentAuth?.user as Siswa)?.nomorAbsen || 0;
+    const studentGender = (currentAuth?.user as Siswa)?.gender || "L";
 
     const [{ data: dbRecords }, { data: dbIzins }] = await Promise.all([
       supabase
@@ -74,10 +80,10 @@ export default function SiswaRiwayatPage() {
         siswaId: r.siswa_id,
         siswa: {
           id: r.siswa_id,
-          nis: '',
-          nama: auth?.user.nama || 'Siswa',
-          nomorAbsen: (auth?.user as Siswa)?.nomorAbsen || 0,
-          gender: (auth?.user as Siswa)?.gender || 'L',
+          nis: studentNis,
+          nama: studentName,
+          nomorAbsen: studentAbsen,
+          gender: studentGender,
         },
         qrSesiId: r.qr_sesi_id,
         jenis: r.jenis as JenisAbsensi,
@@ -99,10 +105,10 @@ export default function SiswaRiwayatPage() {
         siswaId: i.siswa_id,
         siswa: {
           id: i.siswa_id,
-          nis: '',
-          nama: auth?.user.nama || 'Siswa',
-          nomorAbsen: (auth?.user as Siswa)?.nomorAbsen || 0,
-          gender: (auth?.user as Siswa)?.gender || 'L',
+          nis: studentNis,
+          nama: studentName,
+          nomorAbsen: studentAbsen,
+          gender: studentGender,
         },
         jenis: i.jenis as KategoriIzin,
         tanggal: i.tanggal,
@@ -409,9 +415,9 @@ export default function SiswaRiwayatPage() {
                 <div
                   onClick={() => {
                     if (item.type === "absensi") {
-                      setSelectedPhoto(item.recordRef as AbsensiRecord);
+                      handleOpenPhoto(item.recordRef as AbsensiRecord);
                     } else {
-                      setSelectedIzin(item.recordRef as IzinRecord);
+                      handleOpenIzin(item.recordRef as IzinRecord);
                     }
                   }}
                   className="w-16 h-16 rounded-2xl bg-neutral-200 brutal-border-2 overflow-hidden shrink-0 cursor-pointer relative group"
@@ -564,42 +570,52 @@ export default function SiswaRiwayatPage() {
         title="Bukti Presensi Selfie & Lokasi"
         maxWidth="md"
       >
-        {selectedPhoto && (
-          <div className="space-y-4">
-            <div className="w-full max-h-[280px] sm:max-h-[320px] aspect-square rounded-2xl brutal-border-2 overflow-hidden bg-[#181818] mx-auto flex items-center justify-center">
-              <img
-                src={signedPhotoUrl || (selectedPhoto.fotoUrl.startsWith("data:") ? selectedPhoto.fotoUrl : "/placeholder-selfie.png")}
-                alt="Foto Bukti Absen"
-                className="w-full h-full object-contain"
-              />
-            </div>
+        {selectedPhoto && (() => {
+          const photoSrc = signedPhotoUrl || (selectedPhoto.fotoUrl && (selectedPhoto.fotoUrl.startsWith("data:") || selectedPhoto.fotoUrl.startsWith("http")) ? selectedPhoto.fotoUrl : "");
+          return (
+            <div className="space-y-4">
+              <div className="w-full max-h-[280px] sm:max-h-[320px] aspect-square rounded-2xl brutal-border-2 overflow-hidden bg-[#181818] mx-auto flex items-center justify-center">
+                {photoSrc ? (
+                  <img
+                    src={photoSrc}
+                    alt="Foto Bukti Absen"
+                    className="w-full h-full object-contain"
+                  />
+                ) : (
+                  <div className="flex flex-col items-center justify-center gap-2 text-neutral-400 p-6">
+                    <Eye className="w-10 h-10 text-neutral-500" />
+                    <span className="text-xs font-bold">Foto tidak tersedia</span>
+                  </div>
+                )}
+              </div>
 
-            <div className="bg-[#F8F8F5] p-4 rounded-2xl brutal-border-2 space-y-1.5 text-xs font-bold text-[#181818]">
-              <p>Siswa: <strong>{selectedPhoto.siswa?.nama}</strong></p>
-              <p>Sesi: <strong>{selectedPhoto.jenis === "kehadiran_kelas" ? "Kehadiran Kelas" : "Sholat Dzuhur"}</strong> (Sesi #{selectedPhoto.qrSesiId})</p>
-              <p>Waktu Server: {new Date(selectedPhoto.timestampServer).toLocaleString("id-ID")} WIB</p>
-              {selectedPhoto.lokasi && (
-                <p className="flex items-center gap-1 text-green-800">
-                  <MapPin className="w-3.5 h-3.5 text-green-600 shrink-0" />
-                  <span>Lokasi: {selectedPhoto.lokasi.locationName} ({selectedPhoto.lokasi.distanceMeters}m dari sekolah)</span>
-                </p>
-              )}
-              <p>Status Verifikasi: <strong className="uppercase">{selectedPhoto.status}</strong></p>
-            </div>
+              <div className="bg-[#F8F8F5] p-4 rounded-2xl brutal-border-2 space-y-1.5 text-xs font-bold text-[#181818]">
+                <p>Siswa: <strong>{selectedPhoto.siswa?.nama}</strong></p>
+                <p>Sesi: <strong>{selectedPhoto.jenis === "kehadiran_kelas" ? "Kehadiran Kelas" : "Sholat Dzuhur"}</strong> (Sesi #{selectedPhoto.qrSesiId})</p>
+                <p>Waktu Server: {new Date(selectedPhoto.timestampServer).toLocaleString("id-ID")} WIB</p>
+                {selectedPhoto.lokasi && (
+                  <p className="flex items-center gap-1 text-green-800">
+                    <MapPin className="w-3.5 h-3.5 text-green-600 shrink-0" />
+                    <span>Lokasi: {selectedPhoto.lokasi.locationName} ({selectedPhoto.lokasi.distanceMeters}m dari sekolah)</span>
+                  </p>
+                )}
+                <p>Status Verifikasi: <strong className="uppercase">{selectedPhoto.status}</strong></p>
+              </div>
 
-            <Button
-              variant="pink"
-              size="md"
-              onClick={() => {
-                setSelectedPhoto(null);
-                setSignedPhotoUrl("");
-              }}
-              className="w-full justify-center"
-            >
-              Tutup
-            </Button>
-          </div>
-        )}
+              <Button
+                variant="pink"
+                size="md"
+                onClick={() => {
+                  setSelectedPhoto(null);
+                  setSignedPhotoUrl("");
+                }}
+                className="w-full justify-center"
+              >
+                Tutup
+              </Button>
+            </div>
+          );
+        })()}
       </Modal>
 
       {/* Modal 2: Surat Sakit / Izin Modal */}
@@ -612,33 +628,43 @@ export default function SiswaRiwayatPage() {
         title="Lampiran Surat Keterangan"
         maxWidth="md"
       >
-        {selectedIzin && (
-          <div className="space-y-4">
-            <div className="w-full rounded-2xl brutal-border-2 overflow-hidden bg-neutral-100 p-2">
-              <img
-                src={signedIzinUrl || (selectedIzin.suratFotoUrl.startsWith("data:") ? selectedIzin.suratFotoUrl : "/placeholder-selfie.png")}
-                alt="Lampiran Surat Izin"
-                className="w-full max-h-[350px] object-contain rounded-xl"
-              />
-            </div>
+        {selectedIzin && (() => {
+          const izinSrc = signedIzinUrl || (selectedIzin.suratFotoUrl && (selectedIzin.suratFotoUrl.startsWith("data:") || selectedIzin.suratFotoUrl.startsWith("http")) ? selectedIzin.suratFotoUrl : "");
+          return (
+            <div className="space-y-4">
+              <div className="w-full rounded-2xl brutal-border-2 overflow-hidden bg-neutral-100 p-2 flex items-center justify-center min-h-[160px]">
+                {izinSrc ? (
+                  <img
+                    src={izinSrc}
+                    alt="Lampiran Surat Izin"
+                    className="w-full max-h-[350px] object-contain rounded-xl"
+                  />
+                ) : (
+                  <div className="flex flex-col items-center justify-center gap-2 text-neutral-400 p-6">
+                    <FileText className="w-10 h-10 text-neutral-400" />
+                    <span className="text-xs font-bold">Dokumen surat tidak tersedia</span>
+                  </div>
+                )}
+              </div>
 
-            <div className="bg-[#F8F8F5] p-4 rounded-2xl brutal-border-2 space-y-1.5 text-xs font-bold text-[#181818]">
-              <p>Kategori: <strong className="text-[#3355FF]">{selectedIzin.jenis}</strong></p>
-              <p>Tanggal Izin: <strong>{selectedIzin.tanggal}</strong></p>
-              <p>Keterangan / Diagnosa: <em>"{selectedIzin.keterangan}"</em></p>
-              <p>Status: <strong className="uppercase">{selectedIzin.status}</strong></p>
-              {selectedIzin.alasanPenolakan && (
-                <p className="text-red-700 bg-red-50 p-2 rounded-lg border border-red-200">
-                  Catatan Penolakan: {selectedIzin.alasanPenolakan}
-                </p>
-              )}
-            </div>
+              <div className="bg-[#F8F8F5] p-4 rounded-2xl brutal-border-2 space-y-1.5 text-xs font-bold text-[#181818]">
+                <p>Kategori: <strong className="text-[#3355FF]">{selectedIzin.jenis}</strong></p>
+                <p>Tanggal Izin: <strong>{selectedIzin.tanggal}</strong></p>
+                <p>Keterangan / Diagnosa: <em>"{selectedIzin.keterangan}"</em></p>
+                <p>Status: <strong className="uppercase">{selectedIzin.status}</strong></p>
+                {selectedIzin.alasanPenolakan && (
+                  <p className="text-red-700 bg-red-50 p-2 rounded-lg border border-red-200">
+                    Catatan Penolakan: {selectedIzin.alasanPenolakan}
+                  </p>
+                )}
+              </div>
 
-            <Button variant="yellow" size="md" onClick={() => setSelectedIzin(null)} className="w-full justify-center">
-              Tutup
-            </Button>
-          </div>
-        )}
+              <Button variant="yellow" size="md" onClick={() => setSelectedIzin(null)} className="w-full justify-center">
+                Tutup
+              </Button>
+            </div>
+          );
+        })()}
       </Modal>
     </div>
   );

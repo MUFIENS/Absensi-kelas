@@ -534,7 +534,7 @@ export default function SekretarisVerifikasiPage() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="w-full aspect-square rounded-2xl brutal-border-2 overflow-hidden bg-[#181818] flex items-center justify-center max-h-[350px]">
                 <img
-                  src={signedPhotoUrl || (reviewingRecord.fotoUrl.startsWith("data:") ? reviewingRecord.fotoUrl : "/placeholder-selfie.png")}
+                  src={signedPhotoUrl || (reviewingRecord.fotoUrl && (reviewingRecord.fotoUrl.startsWith("data:") || reviewingRecord.fotoUrl.startsWith("http")) ? reviewingRecord.fotoUrl : "/placeholder-selfie.png")}
                   alt="Foto Selfie Full Review"
                   className="w-full h-full object-contain"
                 />
