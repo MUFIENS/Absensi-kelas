@@ -24,13 +24,14 @@ import { AppIcon } from "@/components/ui/AppIcon";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
-import { exportDatabaseBackupAction, fetchRekapKelasAction } from "@/app/actions/absensiActions";
+import { exportDatabaseBackupAction, fetchRekapKelasAction, fetchTodayDashboardOverviewAction } from "@/app/actions/absensiActions";
+import { supabase } from "@/lib/supabaseClient";
+import { getJakartaDateString } from "@/lib/dateUtils";
 import {
   getStoredAuth,
   getAbsensiRecords,
   getRekapKelas,
   getActiveQRSesi,
-  getIzinRecords
 } from "@/lib/store";
 import { AuthSession, AbsensiRecord, RekapItemSiswa, QRSesi } from "@/lib/types";
 
@@ -41,31 +42,113 @@ export default function GuruDashboardPage() {
   const [sesiKelas, setSesiKelas] = useState<QRSesi | null>(null);
   const [sesiSholat, setSesiSholat] = useState<QRSesi | null>(null);
 
-  // Local ISO Date string (YYYY-MM-DD)
-  const todayStr = new Date().toLocaleDateString("en-CA");
+  // Local ISO Date string in Asia/Jakarta (WIB)
+  const todayStr = getJakartaDateString();
+
+  const loadLiveDashboardData = async () => {
+    const now = new Date();
+    try {
+      const [overviewRes, rekapRes] = await Promise.all([
+        fetchTodayDashboardOverviewAction(),
+        fetchRekapKelasAction(now.getMonth() + 1, now.getFullYear()),
+      ]);
+
+      if (overviewRes.success) {
+        if (overviewRes.sesiKelas) {
+          const s = overviewRes.sesiKelas;
+          setSesiKelas({
+            id: s.id,
+            jenis: 'kehadiran_kelas',
+            token: s.token,
+            qrUrl: s.qr_url,
+            tanggal: s.tanggal,
+            waktuMulai: s.waktu_mulai,
+            waktuBerakhir: s.waktu_berakhir,
+            adminId: s.admin_id || 1,
+            adminName: s.admin_name,
+            durationMinutes: s.duration_minutes,
+            isActive: s.is_active,
+            createdAt: s.created_at,
+          });
+        } else {
+          setSesiKelas(null);
+        }
+
+        if (overviewRes.sesiSholat) {
+          const s = overviewRes.sesiSholat;
+          setSesiSholat({
+            id: s.id,
+            jenis: 'sholat_dzuhur',
+            token: s.token,
+            qrUrl: s.qr_url,
+            tanggal: s.tanggal,
+            waktuMulai: s.waktu_mulai,
+            waktuBerakhir: s.waktu_berakhir,
+            adminId: s.admin_id || 2,
+            adminName: s.admin_name,
+            durationMinutes: s.duration_minutes,
+            isActive: s.is_active,
+            createdAt: s.created_at,
+          });
+        } else {
+          setSesiSholat(null);
+        }
+
+        const mappedRecords: AbsensiRecord[] = (overviewRes.records || []).map((r: any) => ({
+          id: r.id,
+          siswaId: r.siswa_id,
+          siswa: {
+            id: r.siswa_id,
+            nama: "Siswa XI PPLG 1",
+            nis: "",
+            nomorAbsen: 0,
+            gender: "L",
+          },
+          qrSesiId: r.qr_sesi_id,
+          jenis: r.jenis,
+          tanggal: r.tanggal,
+          waktuAbsen: r.waktu_absen,
+          status: r.status,
+          diverifikasiOleh: r.diverifikasi_oleh,
+          waktuVerifikasi: r.waktu_verifikasi,
+          alasanPenolakan: r.alasan_penolakan,
+          fotoUrl: r.foto_storage_path,
+          timestampServer: r.created_at || r.waktu_absen,
+        }));
+        setRecords(mappedRecords);
+      }
+
+      if (rekapRes.success && rekapRes.rekap) {
+        setRekap(rekapRes.rekap);
+      }
+    } catch {
+      // Fallback
+    }
+  };
 
   useEffect(() => {
     const currentAuth = getStoredAuth();
     setAuth(currentAuth);
-    setRecords(getAbsensiRecords());
-    setSesiKelas(getActiveQRSesi("kehadiran_kelas"));
-    setSesiSholat(getActiveQRSesi("sholat_dzuhur"));
 
-    const loadLiveRekap = async () => {
-      const now = new Date();
-      try {
-        const res = await fetchRekapKelasAction(now.getMonth() + 1, now.getFullYear());
-        if (res.success && res.rekap) {
-          setRekap(res.rekap);
-        } else {
-          setRekap(getRekapKelas());
-        }
-      } catch {
-        setRekap(getRekapKelas());
-      }
+    loadLiveDashboardData();
+
+    // Supabase Realtime listener on qr_sessions, absensi_records, and izin_records
+    const channel = supabase
+      .channel("dashboard_guru_realtime")
+      .on("postgres_changes", { event: "*", schema: "public", table: "qr_sessions" }, () => {
+        loadLiveDashboardData();
+      })
+      .on("postgres_changes", { event: "*", schema: "public", table: "absensi_records" }, () => {
+        loadLiveDashboardData();
+      })
+      .on("postgres_changes", { event: "*", schema: "public", table: "izin_records" }, () => {
+        loadLiveDashboardData();
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
     };
-
-    loadLiveRekap();
   }, []);
 
   // Filter records by today and session types
@@ -146,23 +229,65 @@ export default function GuruDashboardPage() {
             </p>
           </div>
 
-          <div className="flex flex-wrap gap-3">
-            <Button
-              variant="white"
-              size="lg"
+          <div className="flex flex-col sm:flex-row flex-wrap items-stretch sm:items-center gap-2.5 sm:gap-3 w-full md:w-auto shrink-0">
+            {/* Backup Database Button */}
+            <button
+              type="button"
               disabled={isBackingUp}
               onClick={handleDownloadBackup}
-              className="gap-2 shadow-lg font-black text-xs sm:text-sm"
+              className="group relative flex items-center justify-center sm:justify-start gap-3 px-4 sm:px-5 py-3 bg-white hover:bg-neutral-50 text-[#181818] rounded-2xl brutal-border-2 brutal-shadow font-black transition-all active:translate-x-[2px] active:translate-y-[2px] active:shadow-none disabled:opacity-60 cursor-pointer"
             >
-              <Download className="w-4 h-4 text-[#3355FF]" />
-              <span>{isBackingUp ? "Mengekspor Backup..." : "Cadangkan Database"}</span>
-            </Button>
+              <div className="w-9 h-9 rounded-xl bg-[#3355FF] text-white brutal-border-2 flex items-center justify-center shadow-[1.5px_1.5px_0px_#181818] shrink-0 group-hover:scale-105 transition-transform">
+                <Download className={`w-4 h-4 text-white stroke-[2.5] ${isBackingUp ? "animate-bounce" : ""}`} />
+              </div>
+              <div className="text-left">
+                <span className="text-[10px] text-neutral-500 font-extrabold uppercase block tracking-wider leading-none mb-1">
+                  Keamanan Data
+                </span>
+                <span className="text-xs sm:text-sm font-black font-fredoka text-[#181818] block leading-tight">
+                  {isBackingUp ? "Mengekspor JSON..." : "Cadangkan Database"}
+                </span>
+              </div>
+            </button>
 
-            <Link href="/dashboard/guru/qr-sholat">
-              <Button variant="green" size="lg" className="gap-2 shadow-lg font-black text-xs sm:text-sm">
-                <AppIcon name="mosque" className="w-5 h-5" />
-                <span>{sesiSholat ? "Buka Layar QR Sholat (Aktif)" : "Buka Layar QR Sholat"}</span>
-              </Button>
+            {/* Ekspor Rekap Button */}
+            <Link href="/dashboard/guru/rekap" className="block">
+              <button
+                type="button"
+                className="w-full group relative flex items-center justify-center sm:justify-start gap-3 px-4 sm:px-5 py-3 bg-[#FFD400] hover:bg-[#ffe033] text-[#181818] rounded-2xl brutal-border-2 brutal-shadow font-black transition-all active:translate-x-[2px] active:translate-y-[2px] active:shadow-none cursor-pointer"
+              >
+                <div className="w-9 h-9 rounded-xl bg-white text-[#181818] brutal-border-2 flex items-center justify-center shadow-[1.5px_1.5px_0px_#181818] shrink-0 group-hover:scale-105 transition-transform">
+                  <FileSpreadsheet className="w-4 h-4 text-emerald-700 stroke-[2.5]" />
+                </div>
+                <div className="text-left">
+                  <span className="text-[10px] text-neutral-800 font-extrabold uppercase block tracking-wider leading-none mb-1">
+                    Laporan
+                  </span>
+                  <span className="text-xs sm:text-sm font-black font-fredoka text-[#181818] block leading-tight">
+                    Ekspor Rekap
+                  </span>
+                </div>
+              </button>
+            </Link>
+
+            {/* QR Sholat Button */}
+            <Link href="/dashboard/guru/qr-sholat" className="block">
+              <button
+                type="button"
+                className="w-full group relative flex items-center justify-center sm:justify-start gap-3 px-4 sm:px-5 py-3 bg-[#6FCB6F] hover:bg-[#5db85d] text-[#181818] rounded-2xl brutal-border-2 brutal-shadow font-black transition-all active:translate-x-[2px] active:translate-y-[2px] active:shadow-none cursor-pointer"
+              >
+                <div className="w-9 h-9 rounded-xl bg-white text-[#181818] brutal-border-2 flex items-center justify-center shadow-[1.5px_1.5px_0px_#181818] shrink-0 group-hover:scale-105 transition-transform">
+                  <AppIcon name="mosque" className="w-5 h-5 text-green-700" />
+                </div>
+                <div className="text-left">
+                  <span className="text-[10px] text-neutral-800 font-extrabold uppercase block tracking-wider leading-none mb-1">
+                    Sesi Mushola
+                  </span>
+                  <span className="text-xs sm:text-sm font-black font-fredoka text-[#181818] block leading-tight">
+                    {sesiSholat ? "QR Sholat (Aktif)" : "Layar QR Sholat"}
+                  </span>
+                </div>
+              </button>
             </Link>
           </div>
         </div>

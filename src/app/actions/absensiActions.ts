@@ -3,6 +3,7 @@
 import { getSupabaseServerClient } from '@/lib/supabaseServer';
 import { constantTimeCompare, sanitizeInputText, sanitizeForSpreadsheet } from '@/lib/security';
 import { getHariEfektifBulan } from '@/lib/calendarApi';
+import { getJakartaDateString } from '@/lib/dateUtils';
 import type { AbsensiRecord, IzinRecord, QRSesi, RekapItemSiswa, Siswa, AdminUser, AuthSession } from '@/lib/types';
 
 // Helper: Ubah base64 data URL ke buffer untuk storage upload
@@ -136,7 +137,7 @@ export async function createQRSesiAction(params: {
 }) {
   const supabase = getSupabaseServerClient();
   const now = new Date();
-  const todayStr = now.toISOString().split('T')[0];
+  const todayStr = getJakartaDateString(now);
   const startTime = now.toISOString();
   const endTime = new Date(now.getTime() + params.durationMinutes * 60000).toISOString();
   const prefix = params.jenis === 'kehadiran_kelas' ? 'KLAS' : 'SHLT';
@@ -200,7 +201,7 @@ export async function submitAbsensiAction(params: {
 }) {
   const supabase = getSupabaseServerClient();
   const now = new Date();
-  const todayStr = now.toISOString().split('T')[0];
+  const todayStr = getJakartaDateString(now);
 
   // 1. Validasi Token Sesi QR
   const { data: sesi, error: sesiErr } = await supabase
@@ -611,5 +612,64 @@ export async function exportDatabaseBackupAction() {
     return { success: true, backup: backupPayload };
   } catch (err: any) {
     return { success: false, message: `Gagal membuat backup: ${err.message}` };
+  }
+}
+
+// 12. Ambil Sesi QR Aktif Hari Ini (Live Realtime Supabase)
+export async function fetchActiveQRSessionsAction() {
+  const supabase = getSupabaseServerClient();
+  const todayStr = getJakartaDateString();
+  const now = new Date();
+
+  try {
+    const { data: sessions, error } = await supabase
+      .from('qr_sessions')
+      .select('*')
+      .eq('tanggal', todayStr)
+      .eq('is_active', true)
+      .order('created_at', { ascending: false });
+
+    if (error || !sessions) {
+      return { success: false, sesiKelas: null, sesiSholat: null };
+    }
+
+    const unexpired = sessions.filter(s => new Date(s.waktu_berakhir) > now);
+    const sesiKelas = unexpired.find(s => s.jenis === 'kehadiran_kelas') || null;
+    const sesiSholat = unexpired.find(s => s.jenis === 'sholat_dzuhur') || null;
+
+    return {
+      success: true,
+      sesiKelas,
+      sesiSholat,
+    };
+  } catch {
+    return { success: false, sesiKelas: null, sesiSholat: null };
+  }
+}
+
+// 13. Ambil Ringkasan Presensi Hari Ini (Live Realtime Supabase)
+export async function fetchTodayDashboardOverviewAction() {
+  const supabase = getSupabaseServerClient();
+  const todayStr = getJakartaDateString();
+
+  try {
+    const [{ data: records }, { data: izins }, { data: sessions }] = await Promise.all([
+      supabase.from('absensi_records').select('*').eq('tanggal', todayStr),
+      supabase.from('izin_records').select('*').eq('tanggal', todayStr),
+      supabase.from('qr_sessions').select('*').eq('tanggal', todayStr).eq('is_active', true),
+    ]);
+
+    const now = new Date();
+    const activeSessions = (sessions || []).filter(s => new Date(s.waktu_berakhir) > now);
+
+    return {
+      success: true,
+      records: records || [],
+      izins: izins || [],
+      sesiKelas: activeSessions.find(s => s.jenis === 'kehadiran_kelas') || null,
+      sesiSholat: activeSessions.find(s => s.jenis === 'sholat_dzuhur') || null,
+    };
+  } catch (err: any) {
+    return { success: false, records: [], izins: [], sesiKelas: null, sesiSholat: null };
   }
 }

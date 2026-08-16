@@ -1,13 +1,24 @@
 "use client";
 
-import { useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useEffect, Suspense } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 
-export default function RedirectAbsen() {
+function RedirectAbsenContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+
   useEffect(() => {
-    router.replace("/dashboard/absen");
-  }, [router]);
+    const query = searchParams.toString();
+    router.replace(`/dashboard/siswa/absen${query ? `?${query}` : ""}`);
+  }, [router, searchParams]);
 
   return null;
+}
+
+export default function RedirectAbsen() {
+  return (
+    <Suspense fallback={null}>
+      <RedirectAbsenContent />
+    </Suspense>
+  );
 }

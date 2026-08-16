@@ -31,11 +31,10 @@ import { Dialog } from "@/components/ui/Dialog";
 import { Input } from "@/components/ui/Input";
 import { DatePicker } from "@/components/ui/DatePicker";
 import { cn } from "@/lib/utils";
-import {
-  getStoredAuth
-} from "@/lib/store";
+import { getStoredAuth } from "@/lib/store";
 import { supabase } from "@/lib/supabaseClient";
 import { verifyAbsensiAction, getSignedMediaUrlAction } from "@/app/actions/absensiActions";
+import { getJakartaDateString } from "@/lib/dateUtils";
 import { AuthSession, AbsensiRecord, JenisAbsensi, StatusAbsensi } from "@/lib/types";
 
 const jenisSesiOptions = [
@@ -59,7 +58,7 @@ export default function GuruVerifikasiPage() {
   );
 
   // Date Filter (Default to Today in Local YYYY-MM-DD)
-  const todayStr = new Date().toLocaleDateString("en-CA");
+  const todayStr = getJakartaDateString();
   const [dateFilter, setDateFilter] = useState<string>(todayStr);
 
   const [reviewingRecord, setReviewingRecord] = useState<AbsensiRecord | null>(null);

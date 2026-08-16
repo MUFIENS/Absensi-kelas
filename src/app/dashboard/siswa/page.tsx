@@ -13,32 +13,122 @@ import { AppIcon } from "@/components/ui/AppIcon";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
-import { getStoredAuth, getAbsensiRecords, getIzinRecords } from "@/lib/store";
-import { AuthSession, AbsensiRecord, IzinRecord, Siswa } from "@/lib/types";
+import { getStoredAuth } from "@/lib/store";
+import { supabase } from "@/lib/supabaseClient";
+import { getJakartaDateString } from "@/lib/dateUtils";
+import { AuthSession, AbsensiRecord, IzinRecord, Siswa, JenisAbsensi, StatusAbsensi, KategoriIzin } from "@/lib/types";
 
 export default function DashboardSiswaPage() {
-  const [auth, setAuth] = useState<AuthSession | null>(() => getStoredAuth());
+  const [auth, setAuth] = useState<AuthSession | null>(null);
   const [records, setRecords] = useState<AbsensiRecord[]>([]);
   const [izinList, setIzinList] = useState<IzinRecord[]>([]);
 
+  const studentId = auth && auth.role === "siswa" ? auth.user.id : 0;
+
+  const loadLiveSiswaData = async (sid?: number) => {
+    const targetSid = sid || studentId;
+    if (!targetSid) return;
+
+    const [{ data: dbRecords }, { data: dbIzins }] = await Promise.all([
+      supabase
+        .from('absensi_records')
+        .select('*')
+        .eq('siswa_id', targetSid)
+        .order('waktu_absen', { ascending: false }),
+      supabase
+        .from('izin_records')
+        .select('*')
+        .eq('siswa_id', targetSid)
+        .order('waktu_pengajuan', { ascending: false })
+    ]);
+
+    if (dbRecords) {
+      const mapped: AbsensiRecord[] = dbRecords.map((r: any) => ({
+        id: r.id,
+        siswaId: r.siswa_id,
+        siswa: {
+          id: r.siswa_id,
+          nis: '',
+          nama: auth?.user.nama || 'Siswa',
+          nomorAbsen: (auth?.user as Siswa)?.nomorAbsen || 0,
+          gender: (auth?.user as Siswa)?.gender || 'L',
+        },
+        qrSesiId: r.qr_sesi_id,
+        jenis: r.jenis as JenisAbsensi,
+        tanggal: r.tanggal,
+        waktuAbsen: r.waktu_absen,
+        status: r.status as StatusAbsensi,
+        fotoUrl: r.foto_storage_path,
+        timestampServer: r.created_at || r.waktu_absen,
+        diverifikasiOleh: r.diverifikasi_oleh,
+        waktuVerifikasi: r.waktu_verifikasi,
+        alasanPenolakan: r.alasan_penolakan,
+      }));
+      setRecords(mapped);
+    }
+
+    if (dbIzins) {
+      const mappedIzin: IzinRecord[] = dbIzins.map((i: any) => ({
+        id: i.id,
+        siswaId: i.siswa_id,
+        siswa: {
+          id: i.siswa_id,
+          nis: '',
+          nama: auth?.user.nama || 'Siswa',
+          nomorAbsen: (auth?.user as Siswa)?.nomorAbsen || 0,
+          gender: (auth?.user as Siswa)?.gender || 'L',
+        },
+        jenis: i.jenis as KategoriIzin,
+        tanggal: i.tanggal,
+        keterangan: i.keterangan,
+        suratFotoUrl: i.surat_storage_path,
+        status: i.status as StatusAbsensi,
+        waktuPengajuan: i.waktu_pengajuan,
+        diverifikasiOleh: i.diverifikasi_oleh,
+        waktuVerifikasi: i.waktu_verifikasi,
+        alasanPenolakan: i.alasan_penolakan,
+      }));
+      setIzinList(mappedIzin);
+    }
+  };
+
   useEffect(() => {
-    setRecords(getAbsensiRecords());
-    setIzinList(getIzinRecords());
+    const currentAuth = getStoredAuth();
+    setAuth(currentAuth);
+
+    if (currentAuth && currentAuth.role === "siswa") {
+      loadLiveSiswaData(currentAuth.user.id);
+    }
+
+    // Realtime channel
+    const channel = supabase
+      .channel('realtime_dashboard_siswa')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'absensi_records' }, () => {
+        if (currentAuth && currentAuth.role === "siswa") {
+          loadLiveSiswaData(currentAuth.user.id);
+        }
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'izin_records' }, () => {
+        if (currentAuth && currentAuth.role === "siswa") {
+          loadLiveSiswaData(currentAuth.user.id);
+        }
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, []);
 
-  const studentId = auth && auth.role === "siswa" ? auth.user.id : 11;
-  const studentRecords = records.filter((r) => r.siswaId === studentId);
-  const myIzin = izinList.filter((i) => i.siswaId === studentId);
+  const today = getJakartaDateString();
+  const todayKelasRecord = records.find((r) => r.jenis === "kehadiran_kelas" && r.tanggal === today);
+  const todaySholatRecord = records.find((r) => r.jenis === "sholat_dzuhur" && r.tanggal === today);
 
-  const today = new Date().toLocaleDateString("en-CA");
-  const todayKelasRecord = studentRecords.find((r) => r.jenis === "kehadiran_kelas" && r.tanggal === today);
-  const todaySholatRecord = studentRecords.find((r) => r.jenis === "sholat_dzuhur" && r.tanggal === today);
-
-  const hadirKelasCount = studentRecords.filter((r) => r.jenis === "kehadiran_kelas" && r.status === "verified").length;
-  const hadirSholatCount = studentRecords.filter((r) => r.jenis === "sholat_dzuhur" && r.status === "verified").length;
-  const sakitCount = myIzin.filter((i) => i.jenis === "Sakit").length;
-  const izinCount = myIzin.filter((i) => i.jenis === "Izin" || i.jenis === "Dispensasi").length;
-  const pendingCount = studentRecords.filter((r) => r.status === "pending").length + myIzin.filter((i) => i.status === "pending").length;
+  const hadirKelasCount = records.filter((r) => r.jenis === "kehadiran_kelas" && r.status === "verified").length;
+  const hadirSholatCount = records.filter((r) => r.jenis === "sholat_dzuhur" && r.status === "verified").length;
+  const sakitCount = izinList.filter((i) => i.jenis === "Sakit").length;
+  const izinCount = izinList.filter((i) => i.jenis === "Izin" || i.jenis === "Dispensasi").length;
+  const pendingCount = records.filter((r) => r.status === "pending").length + izinList.filter((i) => i.status === "pending").length;
 
   return (
     <div className="max-w-5xl mx-auto space-y-6">

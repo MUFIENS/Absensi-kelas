@@ -38,6 +38,7 @@ import {
 } from "@/lib/store";
 import { supabase } from "@/lib/supabaseClient";
 import { submitAbsensiAction } from "@/app/actions/absensiActions";
+import { getJakartaDateString } from "@/lib/dateUtils";
 import { AuthSession, Siswa, JenisAbsensi, QRSesi, LokasiPresensi } from "@/lib/types";
 import { APP_CONFIG, calculateDistanceMeters } from "@/lib/env";
 
@@ -75,7 +76,7 @@ function SiswaAbsenContent() {
     setAuth(currentAuth);
 
     const checkActiveSessions = async () => {
-      const todayStr = new Date().toISOString().split('T')[0];
+      const todayStr = getJakartaDateString();
       const { data: activeList } = await supabase
         .from('qr_sessions')
         .select('*')

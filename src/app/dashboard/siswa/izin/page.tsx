@@ -25,6 +25,7 @@ import { DatePicker } from "@/components/ui/DatePicker";
 import { getStoredAuth } from "@/lib/store";
 import { supabase } from "@/lib/supabaseClient";
 import { submitIzinAction, getSignedMediaUrlAction } from "@/app/actions/absensiActions";
+import { getJakartaDateString } from "@/lib/dateUtils";
 import { AuthSession, IzinRecord, KategoriIzin } from "@/lib/types";
 
 export default function SiswaIzinPage() {
@@ -87,10 +88,24 @@ export default function SiswaIzinPage() {
   useEffect(() => {
     const currentAuth = getStoredAuth();
     setAuth(currentAuth);
-    setTanggal(new Date().toLocaleDateString("en-CA"));
+    setTanggal(getJakartaDateString());
     if (currentAuth && currentAuth.role === "siswa") {
       loadData(currentAuth.user.id);
     }
+
+    // Realtime channel
+    const channel = supabase
+      .channel('realtime_siswa_izin_page')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'izin_records' }, () => {
+        if (currentAuth && currentAuth.role === "siswa") {
+          loadData(currentAuth.user.id);
+        }
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, []);
 
   const handleOpenPreview = async (izin: IzinRecord) => {

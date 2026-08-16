@@ -22,8 +22,10 @@ import { Card } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import { Modal } from "@/components/ui/Modal";
 import { AppIcon } from "@/components/ui/AppIcon";
-import { getStoredAuth, getAbsensiRecords, getIzinRecords } from "@/lib/store";
-import { AuthSession, AbsensiRecord, IzinRecord, JenisAbsensi } from "@/lib/types";
+import { getStoredAuth } from "@/lib/store";
+import { supabase } from "@/lib/supabaseClient";
+import { getSignedMediaUrlAction } from "@/app/actions/absensiActions";
+import { AuthSession, AbsensiRecord, IzinRecord, JenisAbsensi, StatusAbsensi, KategoriIzin, Siswa } from "@/lib/types";
 
 type FilterTab = "all" | "kehadiran_kelas" | "sholat_dzuhur" | "sakit" | "izin";
 
@@ -33,17 +35,136 @@ export default function SiswaRiwayatPage() {
   const [izinList, setIzinList] = useState<IzinRecord[]>([]);
   const [filterTab, setFilterTab] = useState<FilterTab>("all");
 
-  // Modals
+  // Modals & signed URLs
   const [selectedPhoto, setSelectedPhoto] = useState<AbsensiRecord | null>(null);
+  const [signedPhotoUrl, setSignedPhotoUrl] = useState<string>("");
   const [selectedIzin, setSelectedIzin] = useState<IzinRecord | null>(null);
+  const [signedIzinUrl, setSignedIzinUrl] = useState<string>("");
+
+  const studentId = auth && auth.role === "siswa" ? auth.user.id : 0;
+
+  const loadData = async (sid?: number) => {
+    const targetSid = sid || studentId;
+    if (!targetSid) return;
+
+    const [{ data: dbRecords }, { data: dbIzins }] = await Promise.all([
+      supabase
+        .from('absensi_records')
+        .select('*')
+        .eq('siswa_id', targetSid)
+        .order('waktu_absen', { ascending: false }),
+      supabase
+        .from('izin_records')
+        .select('*')
+        .eq('siswa_id', targetSid)
+        .order('waktu_pengajuan', { ascending: false })
+    ]);
+
+    if (dbRecords) {
+      const mapped: AbsensiRecord[] = dbRecords.map((r: any) => ({
+        id: r.id,
+        siswaId: r.siswa_id,
+        siswa: {
+          id: r.siswa_id,
+          nis: '',
+          nama: auth?.user.nama || 'Siswa',
+          nomorAbsen: (auth?.user as Siswa)?.nomorAbsen || 0,
+          gender: (auth?.user as Siswa)?.gender || 'L',
+        },
+        qrSesiId: r.qr_sesi_id,
+        jenis: r.jenis as JenisAbsensi,
+        tanggal: r.tanggal,
+        waktuAbsen: r.waktu_absen,
+        status: r.status as StatusAbsensi,
+        fotoUrl: r.foto_storage_path,
+        timestampServer: r.created_at || r.waktu_absen,
+        diverifikasiOleh: r.diverifikasi_oleh,
+        waktuVerifikasi: r.waktu_verifikasi,
+        alasanPenolakan: r.alasan_penolakan,
+      }));
+      setAbsensiList(mapped);
+    }
+
+    if (dbIzins) {
+      const mappedIzin: IzinRecord[] = dbIzins.map((i: any) => ({
+        id: i.id,
+        siswaId: i.siswa_id,
+        siswa: {
+          id: i.siswa_id,
+          nis: '',
+          nama: auth?.user.nama || 'Siswa',
+          nomorAbsen: (auth?.user as Siswa)?.nomorAbsen || 0,
+          gender: (auth?.user as Siswa)?.gender || 'L',
+        },
+        jenis: i.jenis as KategoriIzin,
+        tanggal: i.tanggal,
+        keterangan: i.keterangan,
+        suratFotoUrl: i.surat_storage_path,
+        status: i.status as StatusAbsensi,
+        waktuPengajuan: i.waktu_pengajuan,
+        diverifikasiOleh: i.diverifikasi_oleh,
+        waktuVerifikasi: i.waktu_verifikasi,
+        alasanPenolakan: i.alasan_penolakan,
+      }));
+      setIzinList(mappedIzin);
+    }
+  };
 
   useEffect(() => {
-    setAuth(getStoredAuth());
-    setAbsensiList(getAbsensiRecords());
-    setIzinList(getIzinRecords());
+    const currentAuth = getStoredAuth();
+    setAuth(currentAuth);
+
+    if (currentAuth && currentAuth.role === "siswa") {
+      loadData(currentAuth.user.id);
+    }
+
+    // Realtime listener
+    const channel = supabase
+      .channel('realtime_siswa_riwayat')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'absensi_records' }, () => {
+        if (currentAuth && currentAuth.role === "siswa") {
+          loadData(currentAuth.user.id);
+        }
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'izin_records' }, () => {
+        if (currentAuth && currentAuth.role === "siswa") {
+          loadData(currentAuth.user.id);
+        }
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, []);
 
-  const studentId = auth && auth.role === "siswa" ? auth.user.id : 11;
+  const handleOpenPhoto = async (rec: AbsensiRecord) => {
+    setSelectedPhoto(rec);
+    if (rec.fotoUrl) {
+      if (rec.fotoUrl.startsWith('data:') || rec.fotoUrl.startsWith('http')) {
+        setSignedPhotoUrl(rec.fotoUrl);
+      } else {
+        const res = await getSignedMediaUrlAction('absensi-selfies', rec.fotoUrl);
+        setSignedPhotoUrl(res.success ? res.url : '');
+      }
+    } else {
+      setSignedPhotoUrl('');
+    }
+  };
+
+  const handleOpenIzin = async (iz: IzinRecord) => {
+    setSelectedIzin(iz);
+    if (iz.suratFotoUrl) {
+      if (iz.suratFotoUrl.startsWith('data:') || iz.suratFotoUrl.startsWith('http')) {
+        setSignedIzinUrl(iz.suratFotoUrl);
+      } else {
+        const res = await getSignedMediaUrlAction('surat-izin', iz.suratFotoUrl);
+        setSignedIzinUrl(res.success ? res.url : '');
+      }
+    } else {
+      setSignedIzinUrl('');
+    }
+  };
 
   // Filter records by student ID
   const myAbsensi = absensiList.filter((r) => r.siswaId === studentId);
@@ -409,9 +530,9 @@ export default function SiswaRiwayatPage() {
                   size="sm"
                   onClick={() => {
                     if (item.type === "absensi") {
-                      setSelectedPhoto(item.recordRef as AbsensiRecord);
+                      handleOpenPhoto(item.recordRef as AbsensiRecord);
                     } else {
-                      setSelectedIzin(item.recordRef as IzinRecord);
+                      handleOpenIzin(item.recordRef as IzinRecord);
                     }
                   }}
                   className="text-xs gap-1"
@@ -428,7 +549,10 @@ export default function SiswaRiwayatPage() {
       {/* Modal 1: Selfie & GPS Photo Modal */}
       <Modal
         isOpen={!!selectedPhoto}
-        onClose={() => setSelectedPhoto(null)}
+        onClose={() => {
+          setSelectedPhoto(null);
+          setSignedPhotoUrl("");
+        }}
         title="Bukti Presensi Selfie & Lokasi"
         maxWidth="md"
       >
@@ -436,7 +560,7 @@ export default function SiswaRiwayatPage() {
           <div className="space-y-4">
             <div className="w-full max-h-[280px] sm:max-h-[320px] aspect-square rounded-2xl brutal-border-2 overflow-hidden bg-[#181818] mx-auto flex items-center justify-center">
               <img
-                src={selectedPhoto.fotoUrl}
+                src={signedPhotoUrl || (selectedPhoto.fotoUrl.startsWith("data:") ? selectedPhoto.fotoUrl : "/placeholder-selfie.png")}
                 alt="Foto Bukti Absen"
                 className="w-full h-full object-contain"
               />
@@ -455,7 +579,15 @@ export default function SiswaRiwayatPage() {
               <p>Status Verifikasi: <strong className="uppercase">{selectedPhoto.status}</strong></p>
             </div>
 
-            <Button variant="pink" size="md" onClick={() => setSelectedPhoto(null)} className="w-full justify-center">
+            <Button
+              variant="pink"
+              size="md"
+              onClick={() => {
+                setSelectedPhoto(null);
+                setSignedPhotoUrl("");
+              }}
+              className="w-full justify-center"
+            >
               Tutup
             </Button>
           </div>
@@ -465,7 +597,10 @@ export default function SiswaRiwayatPage() {
       {/* Modal 2: Surat Sakit / Izin Modal */}
       <Modal
         isOpen={!!selectedIzin}
-        onClose={() => setSelectedIzin(null)}
+        onClose={() => {
+          setSelectedIzin(null);
+          setSignedIzinUrl("");
+        }}
         title="Lampiran Surat Keterangan"
         maxWidth="md"
       >
@@ -473,7 +608,7 @@ export default function SiswaRiwayatPage() {
           <div className="space-y-4">
             <div className="w-full rounded-2xl brutal-border-2 overflow-hidden bg-neutral-100 p-2">
               <img
-                src={selectedIzin.suratFotoUrl}
+                src={signedIzinUrl || (selectedIzin.suratFotoUrl.startsWith("data:") ? selectedIzin.suratFotoUrl : "/placeholder-selfie.png")}
                 alt="Lampiran Surat Izin"
                 className="w-full max-h-[350px] object-contain rounded-xl"
               />

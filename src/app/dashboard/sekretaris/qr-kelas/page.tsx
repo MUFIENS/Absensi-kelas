@@ -17,7 +17,8 @@ import {
   Lock,
   PowerOff,
   PlusCircle,
-  PlayCircle
+  PlayCircle,
+  Download
 } from "lucide-react";
 import { AppIcon } from "@/components/ui/AppIcon";
 import Link from "next/link";
@@ -26,11 +27,10 @@ import { Card } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import { Modal } from "@/components/ui/Modal";
 import { Dialog, ConfirmDialog } from "@/components/ui/Dialog";
-import {
-  getStoredAuth
-} from "@/lib/store";
+import { getStoredAuth } from "@/lib/store";
 import { supabase } from "@/lib/supabaseClient";
 import { createQRSesiAction, deactivateQRSesiAction } from "@/app/actions/absensiActions";
+import { getJakartaDateString } from "@/lib/dateUtils";
 import { QRSesi, AbsensiRecord, AuthSession } from "@/lib/types";
 
 export default function SekretarisQRKelasPage() {
@@ -81,7 +81,7 @@ export default function SekretarisQRKelasPage() {
     const currentAuth = getStoredAuth();
     setAuth(currentAuth);
 
-    const todayStr = new Date().toISOString().split('T')[0];
+    const todayStr = getJakartaDateString();
 
     // Ambil sesi aktif hari ini dari Supabase
     const { data: dbSession } = await supabase
@@ -596,7 +596,7 @@ export default function SekretarisQRKelasPage() {
                     onClick={handleDownloadPNG}
                     className="justify-center gap-1.5 text-xs font-bold"
                   >
-                    <AppIcon name="export-csv" className="w-3.5 h-3.5" />
+                    <Download className="w-3.5 h-3.5" />
                     <span>Unduh PNG</span>
                   </Button>
 

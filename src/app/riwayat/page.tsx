@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 export default function RedirectRiwayat() {
   const router = useRouter();
   useEffect(() => {
-    router.replace("/dashboard/riwayat");
+    router.replace("/dashboard/siswa/riwayat");
   }, [router]);
 
   return null;

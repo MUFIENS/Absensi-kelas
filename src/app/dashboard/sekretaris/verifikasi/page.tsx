@@ -26,34 +26,96 @@ import { Modal } from "@/components/ui/Modal";
 import { Input } from "@/components/ui/Input";
 import { DatePicker } from "@/components/ui/DatePicker";
 import { cn } from "@/lib/utils";
-import {
-  getStoredAuth,
-  getAbsensiRecords,
-  verifyAbsensi,
-  batchVerifyAbsensi
-} from "@/lib/store";
-import { AuthSession, AbsensiRecord, StatusAbsensi } from "@/lib/types";
+import { getStoredAuth } from "@/lib/store";
+import { supabase } from "@/lib/supabaseClient";
+import { verifyAbsensiAction, getSignedMediaUrlAction } from "@/app/actions/absensiActions";
+import { getJakartaDateString } from "@/lib/dateUtils";
+import { AuthSession, AbsensiRecord, StatusAbsensi, JenisAbsensi } from "@/lib/types";
 
 export default function SekretarisVerifikasiPage() {
   const [auth, setAuth] = useState<AuthSession | null>(null);
   const [records, setRecords] = useState<AbsensiRecord[]>([]);
   const [statusFilter, setStatusFilter] = useState<"all" | StatusAbsensi>("pending");
 
-  // Date Filter (Default to Today in Local YYYY-MM-DD)
-  const todayStr = new Date().toLocaleDateString("en-CA");
+  // Date Filter (Default to Today in Local YYYY-MM-DD in Asia/Jakarta)
+  const todayStr = getJakartaDateString();
   const [dateFilter, setDateFilter] = useState<string>(todayStr);
 
   const [reviewingRecord, setReviewingRecord] = useState<AbsensiRecord | null>(null);
+  const [signedPhotoUrl, setSignedPhotoUrl] = useState<string>("");
   const [rejectReason, setRejectReason] = useState<string>("");
   const [isRejecting, setIsRejecting] = useState<boolean>(false);
+  const [isProcessing, setIsProcessing] = useState<boolean>(false);
+
+  const refreshRecords = async () => {
+    const { data: dbRecords } = await supabase
+      .from('absensi_records')
+      .select('*, siswa (*)')
+      .order('waktu_absen', { ascending: false });
+
+    if (dbRecords) {
+      const mapped: AbsensiRecord[] = dbRecords.map((r: any) => ({
+        id: r.id,
+        siswaId: r.siswa_id,
+        siswa: {
+          id: r.siswa_id,
+          nis: r.siswa?.nisn || '',
+          nama: r.siswa?.nama || `Siswa #${r.siswa_id}`,
+          nomorAbsen: r.siswa?.nomor_absen || 0,
+          gender: (r.siswa?.gender || 'L') as 'L' | 'P',
+        },
+        qrSesiId: r.qr_sesi_id,
+        jenis: r.jenis as JenisAbsensi,
+        tanggal: r.tanggal,
+        waktuAbsen: r.waktu_absen,
+        status: r.status as StatusAbsensi,
+        fotoUrl: r.foto_storage_path,
+        timestampServer: r.created_at || r.waktu_absen,
+        diverifikasiOleh: r.diverifikasi_oleh,
+        waktuVerifikasi: r.waktu_verifikasi,
+        alasanPenolakan: r.alasan_penolakan,
+      }));
+      setRecords(mapped);
+    }
+  };
 
   useEffect(() => {
     setAuth(getStoredAuth());
     refreshRecords();
+
+    // Supabase Realtime Subscription
+    const channel = supabase
+      .channel('realtime_sekretaris_verifikasi')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'absensi_records',
+        },
+        () => {
+          refreshRecords();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, []);
 
-  const refreshRecords = () => {
-    setRecords(getAbsensiRecords());
+  const handleOpenReview = async (record: AbsensiRecord) => {
+    setReviewingRecord(record);
+    if (record.fotoUrl) {
+      if (record.fotoUrl.startsWith("data:") || record.fotoUrl.startsWith("http")) {
+        setSignedPhotoUrl(record.fotoUrl);
+      } else {
+        const res = await getSignedMediaUrlAction('absensi-selfies', record.fotoUrl);
+        setSignedPhotoUrl(res.success ? res.url : '');
+      }
+    } else {
+      setSignedPhotoUrl('');
+    }
   };
 
   const formatIndonesianDate = (dateStr: string) => {
@@ -88,28 +150,60 @@ export default function SekretarisVerifikasiPage() {
   const verifiedCount = kelasRecords.filter((r) => r.status === "verified").length;
   const rejectedCount = kelasRecords.filter((r) => r.status === "rejected").length;
 
-  const handleApprove = (recordId: number) => {
+  const handleApprove = async (recordId: number) => {
     const verifier = auth?.user.nama || "Sekretaris Kelas";
-    verifyAbsensi(recordId, "verified", verifier);
-    refreshRecords();
-    setReviewingRecord(null);
+    setIsProcessing(true);
+    try {
+      await verifyAbsensiAction({
+        recordId,
+        status: "verified",
+        verifierName: verifier,
+      });
+      await refreshRecords();
+      setReviewingRecord(null);
+      setSignedPhotoUrl('');
+    } finally {
+      setIsProcessing(false);
+    }
   };
 
-  const handleReject = (recordId: number) => {
+  const handleReject = async (recordId: number) => {
     const verifier = auth?.user.nama || "Sekretaris Kelas";
-    verifyAbsensi(recordId, "rejected", verifier, rejectReason || "Foto tidak jelas / tidak di kelas");
-    refreshRecords();
-    setReviewingRecord(null);
-    setIsRejecting(false);
-    setRejectReason("");
+    setIsProcessing(true);
+    try {
+      await verifyAbsensiAction({
+        recordId,
+        status: "rejected",
+        verifierName: verifier,
+        alasan: rejectReason || "Foto tidak jelas / tidak di kelas",
+      });
+      await refreshRecords();
+      setReviewingRecord(null);
+      setSignedPhotoUrl('');
+      setIsRejecting(false);
+      setRejectReason("");
+    } finally {
+      setIsProcessing(false);
+    }
   };
 
-  const handleBatchApprovePending = () => {
+  const handleBatchApprovePending = async () => {
     const pendingIds = kelasRecords.filter((r) => r.status === "pending").map((r) => r.id);
     if (pendingIds.length === 0) return;
     const verifier = auth?.user.nama || "Sekretaris Kelas";
-    batchVerifyAbsensi(pendingIds, "verified", verifier);
-    refreshRecords();
+    setIsProcessing(true);
+    try {
+      for (const id of pendingIds) {
+        await verifyAbsensiAction({
+          recordId: id,
+          status: "verified",
+          verifierName: verifier,
+        });
+      }
+      await refreshRecords();
+    } finally {
+      setIsProcessing(false);
+    }
   };
 
   return (
@@ -325,11 +419,11 @@ export default function SekretarisVerifikasiPage() {
 
               {/* Photo Frame */}
               <div
-                onClick={() => setReviewingRecord(rec)}
+                onClick={() => handleOpenReview(rec)}
                 className="relative w-full aspect-square rounded-2xl brutal-border-2 overflow-hidden bg-neutral-900 cursor-pointer group"
               >
                 <img
-                  src={rec.fotoUrl}
+                  src={rec.fotoUrl.startsWith("data:") || rec.fotoUrl.startsWith("http") ? rec.fotoUrl : "/placeholder-selfie.png"}
                   alt={rec.siswa.nama}
                   className="w-full h-full object-cover group-hover:scale-105 transition-transform"
                 />
@@ -350,13 +444,11 @@ export default function SekretarisVerifikasiPage() {
                     : "bg-red-50 text-red-950 border-red-400"
                 }`}>
                   <div className="flex items-center gap-1.5 truncate">
-                    <MapPin className={`w-3.5 h-3.5 shrink-0 ${rec.lokasi.isWithinRadius ? "text-green-600" : "text-red-600"}`} />
-                    <span className="truncate">
-                      {rec.lokasi.isWithinRadius ? "Area Sekolah" : "Luar Radius"} ({rec.lokasi.distanceMeters}m)
-                    </span>
+                    <MapPin className="w-3.5 h-3.5 shrink-0 text-neutral-600" />
+                    <span className="truncate">{rec.lokasi.locationName || `${rec.lokasi.distanceMeters}m dari sekolah`}</span>
                   </div>
                   <a
-                    href={`https://www.google.com/maps?q=${rec.lokasi.latitude},${rec.lokasi.longitude}`}
+                    href={`https://www.google.com/maps/search/?api=1&query=${rec.lokasi.latitude},${rec.lokasi.longitude}`}
                     target="_blank"
                     rel="noreferrer"
                     className="text-[10px] font-black underline flex items-center gap-0.5 hover:text-blue-600 shrink-0 ml-1"
@@ -396,7 +488,7 @@ export default function SekretarisVerifikasiPage() {
                       variant="pink"
                       size="sm"
                       onClick={() => {
-                        setReviewingRecord(rec);
+                        handleOpenReview(rec);
                         setIsRejecting(true);
                       }}
                       className="gap-1 text-xs justify-center"
@@ -427,6 +519,7 @@ export default function SekretarisVerifikasiPage() {
         isOpen={!!reviewingRecord}
         onClose={() => {
           setReviewingRecord(null);
+          setSignedPhotoUrl("");
           setIsRejecting(false);
           setRejectReason("");
         }}
@@ -438,7 +531,7 @@ export default function SekretarisVerifikasiPage() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="w-full aspect-square rounded-2xl brutal-border-2 overflow-hidden bg-[#181818] flex items-center justify-center max-h-[350px]">
                 <img
-                  src={reviewingRecord.fotoUrl}
+                  src={signedPhotoUrl || (reviewingRecord.fotoUrl.startsWith("data:") ? reviewingRecord.fotoUrl : "/placeholder-selfie.png")}
                   alt="Foto Selfie Full Review"
                   className="w-full h-full object-contain"
                 />

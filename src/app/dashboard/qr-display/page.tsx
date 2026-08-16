@@ -17,13 +17,10 @@ import {
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
-import {
-  getQRSessions,
-  createQRSesi,
-  getActiveQRSesi,
-  getAbsensiRecords,
-  getStoredAuth
-} from "@/lib/store";
+import { getStoredAuth } from "@/lib/store";
+import { supabase } from "@/lib/supabaseClient";
+import { createQRSesiAction, deactivateQRSesiAction } from "@/app/actions/absensiActions";
+import { getJakartaDateString } from "@/lib/dateUtils";
 import { JenisAbsensi, QRSesi, AbsensiRecord, AuthSession } from "@/lib/types";
 import { APP_CONFIG } from "@/lib/env";
 
@@ -33,28 +30,98 @@ export default function DashboardQRDisplayPage() {
   const [activeSession, setActiveSession] = useState<QRSesi | null>(null);
   const [records, setRecords] = useState<AbsensiRecord[]>([]);
 
+  const loadData = async () => {
+    const todayStr = getJakartaDateString();
+    const [{ data: dbSession }, { data: dbRecords }] = await Promise.all([
+      supabase
+        .from('qr_sessions')
+        .select('*')
+        .eq('jenis', jenis)
+        .eq('tanggal', todayStr)
+        .eq('is_active', true)
+        .order('id', { ascending: false })
+        .limit(1)
+        .maybeSingle(),
+      supabase
+        .from('absensi_records')
+        .select('*, siswa (*)')
+        .eq('tanggal', todayStr)
+        .eq('jenis', jenis)
+    ]);
+
+    if (dbSession) {
+      setActiveSession({
+        id: dbSession.id,
+        jenis: dbSession.jenis as JenisAbsensi,
+        token: dbSession.token,
+        qrUrl: dbSession.qr_url,
+        tanggal: dbSession.tanggal,
+        waktuMulai: dbSession.waktu_mulai,
+        waktuBerakhir: dbSession.waktu_berakhir,
+        adminId: dbSession.admin_id || 1,
+        adminName: dbSession.admin_name,
+        durationMinutes: dbSession.duration_minutes,
+        isActive: dbSession.is_active,
+        createdAt: dbSession.created_at,
+      });
+    } else {
+      setActiveSession(null);
+    }
+
+    if (dbRecords) {
+      setRecords(dbRecords.map((r: any) => ({
+        id: r.id,
+        siswaId: r.siswa_id,
+        siswa: {
+          id: r.siswa_id,
+          nis: r.siswa?.nisn || '',
+          nama: r.siswa?.nama || `Siswa #${r.siswa_id}`,
+          nomorAbsen: r.siswa?.nomor_absen || 0,
+          gender: (r.siswa?.gender || 'L') as 'L' | 'P',
+        },
+        qrSesiId: r.qr_sesi_id,
+        jenis: r.jenis,
+        tanggal: r.tanggal,
+        waktuAbsen: r.waktu_absen,
+        status: r.status,
+        fotoUrl: r.foto_storage_path,
+        timestampServer: r.created_at || r.waktu_absen,
+      })));
+    }
+  };
+
   useEffect(() => {
     setAuth(getStoredAuth());
     loadData();
+
+    const channel = supabase
+      .channel('realtime_qr_display_channel')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'qr_sessions' }, () => {
+        loadData();
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'absensi_records' }, () => {
+        loadData();
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, [jenis]);
 
-  const loadData = () => {
-    const session = getActiveQRSesi(jenis);
-    setActiveSession(session);
-    setRecords(getAbsensiRecords());
-  };
-
-  const handleStartSession = (duration: number = jenis === "kehadiran_kelas" ? 45 : 60) => {
-    const newSession = createQRSesi(
+  const handleStartSession = async (duration: number = jenis === "kehadiran_kelas" ? 45 : 60) => {
+    const res = await createQRSesiAction({
       jenis,
-      auth?.user.id || 1,
-      auth?.user.nama || "Admin/Guru",
-      duration
-    );
-    setActiveSession(newSession);
+      durationMinutes: duration,
+      adminId: auth?.admin?.id || auth?.user.id || 1,
+      adminName: auth?.admin?.nama || auth?.user.nama || "Admin",
+    });
+    if (res.success && res.session) {
+      loadData();
+    }
   };
 
-  const today = new Date().toLocaleDateString("en-CA");
+  const today = getJakartaDateString();
   const todayRecords = records.filter(
     (r) => r.jenis === jenis && r.tanggal === today
   );

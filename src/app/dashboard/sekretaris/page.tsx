@@ -16,27 +16,97 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
-import { Badge } from "@/components/ui/Badge";
-import {
-  getStoredAuth,
-  getAbsensiRecords,
-  getActiveQRSesi
-} from "@/lib/store";
-import { AuthSession, AbsensiRecord } from "@/lib/types";
+import { fetchTodayDashboardOverviewAction } from "@/app/actions/absensiActions";
+import { supabase } from "@/lib/supabaseClient";
+import { getJakartaDateString } from "@/lib/dateUtils";
+import { getStoredAuth, getAbsensiRecords } from "@/lib/store";
+import { AuthSession, AbsensiRecord, QRSesi } from "@/lib/types";
 
 export default function DashboardSekretarisPage() {
   const [auth, setAuth] = useState<AuthSession | null>(null);
   const [records, setRecords] = useState<AbsensiRecord[]>([]);
+  const [activeSesi, setActiveSesi] = useState<QRSesi | null>(null);
+
+  const loadLiveSekretarisData = async () => {
+    try {
+      const res = await fetchTodayDashboardOverviewAction();
+      if (res.success) {
+        if (res.sesiKelas) {
+          const s = res.sesiKelas;
+          setActiveSesi({
+            id: s.id,
+            jenis: 'kehadiran_kelas',
+            token: s.token,
+            qrUrl: s.qr_url,
+            tanggal: s.tanggal,
+            waktuMulai: s.waktu_mulai,
+            waktuBerakhir: s.waktu_berakhir,
+            adminId: s.admin_id || 1,
+            adminName: s.admin_name,
+            durationMinutes: s.duration_minutes,
+            isActive: s.is_active,
+            createdAt: s.created_at,
+          });
+        } else {
+          setActiveSesi(null);
+        }
+
+        const mappedRecords: AbsensiRecord[] = (res.records || []).map((r: any) => ({
+          id: r.id,
+          siswaId: r.siswa_id,
+          siswa: {
+            id: r.siswa_id,
+            nama: "Siswa XI PPLG 1",
+            nis: "",
+            nomorAbsen: 0,
+            gender: "L",
+          },
+          qrSesiId: r.qr_sesi_id,
+          jenis: r.jenis,
+          tanggal: r.tanggal,
+          waktuAbsen: r.waktu_absen,
+          status: r.status,
+          diverifikasiOleh: r.diverifikasi_oleh,
+          waktuVerifikasi: r.waktu_verifikasi,
+          alasanPenolakan: r.alasan_penolakan,
+          fotoUrl: r.foto_storage_path,
+          timestampServer: r.created_at || r.waktu_absen,
+        }));
+        setRecords(mappedRecords);
+      }
+    } catch {
+      // Fallback
+    }
+  };
 
   useEffect(() => {
-    setAuth(getStoredAuth());
-    setRecords(getAbsensiRecords());
+    const currentAuth = getStoredAuth();
+    setAuth(currentAuth);
+
+    loadLiveSekretarisData();
+
+    // Supabase Realtime channel
+    const channel = supabase
+      .channel("dashboard_sekretaris_realtime")
+      .on("postgres_changes", { event: "*", schema: "public", table: "qr_sessions" }, () => {
+        loadLiveSekretarisData();
+      })
+      .on("postgres_changes", { event: "*", schema: "public", table: "absensi_records" }, () => {
+        loadLiveSekretarisData();
+      })
+      .on("postgres_changes", { event: "*", schema: "public", table: "izin_records" }, () => {
+        loadLiveSekretarisData();
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, []);
 
-  const today = new Date().toLocaleDateString("en-CA");
+  const today = getJakartaDateString();
   const todayKelasRecords = records.filter((r) => r.jenis === "kehadiran_kelas" && r.tanggal === today);
   const pendingRecords = records.filter((r) => r.status === "pending");
-  const activeSesi = getActiveQRSesi("kehadiran_kelas");
 
   return (
     <div className="max-w-6xl mx-auto space-y-6">

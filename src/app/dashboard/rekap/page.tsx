@@ -7,6 +7,8 @@ import {
   ArrowLeft,
   Calendar,
   Info,
+  FileSpreadsheet,
+  FileText
 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
@@ -44,54 +46,72 @@ const tahunOptions = [
   { value: "2027", label: "2027/2028" },
 ];
 
+import { supabase } from "@/lib/supabaseClient";
+
 export default function DashboardRekapPage() {
   const [auth, setAuth] = useState<AuthSession | null>(null);
   const [rekapData, setRekapData] = useState<RekapItemSiswa[]>([]);
   const [searchTerm, setSearchTerm] = useState<string>("");
-  const [selectedBulan, setSelectedBulan] = useState<string>("8");
-  const [selectedTahun, setSelectedTahun] = useState<string>("2026");
+  
+  const now = new Date();
+  const [selectedBulan, setSelectedBulan] = useState<string>(() => String(new Date().getMonth() + 1));
+  const [selectedTahun, setSelectedTahun] = useState<string>(() => String(new Date().getFullYear()));
   const [selectedStudentDetail, setSelectedStudentDetail] = useState<RekapItemSiswa | null>(null);
   const [showCalendarInfo, setShowCalendarInfo] = useState<boolean>(false);
   const [customDaysMap, setCustomDaysMap] = useState<Record<string, number>>({});
   const [customInputDays, setCustomInputDays] = useState<string>("");
   const [hariEfektifInfo, setHariEfektifInfo] = useState<HariEfektifResult>(() =>
-    getHariEfektifBulan(8, 2026)
+    getHariEfektifBulan(now.getMonth() + 1, now.getFullYear())
   );
 
   const monthKey = `${selectedBulan}-${selectedTahun}`;
   const isCustomActive = customDaysMap[monthKey] !== undefined;
   const currentEffectiveDays = isCustomActive ? customDaysMap[monthKey] : hariEfektifInfo.totalHariEfektif;
 
-  useEffect(() => {
-    setAuth(getStoredAuth());
-    
-    const bulanNum = parseInt(selectedBulan) || 8;
-    const tahunNum = parseInt(selectedTahun) || 2026;
+  const loadRekap = async () => {
+    const bulanNum = parseInt(selectedBulan) || (new Date().getMonth() + 1);
+    const tahunNum = parseInt(selectedTahun) || new Date().getFullYear();
     const currentKey = `${bulanNum}-${tahunNum}`;
     const customVal = customDaysMap[currentKey];
 
-    const loadRekap = async () => {
-      try {
-        const holidays = await fetchIndonesianHolidays(tahunNum);
-        const info = getHariEfektifBulan(bulanNum, tahunNum, holidays);
-        setHariEfektifInfo(info);
-        const effective = customVal !== undefined ? customVal : info.totalHariEfektif;
-        const res = await fetchRekapKelasAction(bulanNum, tahunNum, effective);
-        if (res.success && res.rekap) {
-          setRekapData(res.rekap);
-        }
-      } catch {
-        const info = getHariEfektifBulan(bulanNum, tahunNum);
-        setHariEfektifInfo(info);
-        const effective = customVal !== undefined ? customVal : info.totalHariEfektif;
-        const res = await fetchRekapKelasAction(bulanNum, tahunNum, effective);
-        if (res.success && res.rekap) {
-          setRekapData(res.rekap);
-        }
+    try {
+      const holidays = await fetchIndonesianHolidays(tahunNum);
+      const info = getHariEfektifBulan(bulanNum, tahunNum, holidays);
+      setHariEfektifInfo(info);
+      const effective = customVal !== undefined ? customVal : info.totalHariEfektif;
+      const res = await fetchRekapKelasAction(bulanNum, tahunNum, effective);
+      if (res.success && res.rekap) {
+        setRekapData(res.rekap);
       }
-    };
+    } catch {
+      const info = getHariEfektifBulan(bulanNum, tahunNum);
+      setHariEfektifInfo(info);
+      const effective = customVal !== undefined ? customVal : info.totalHariEfektif;
+      const res = await fetchRekapKelasAction(bulanNum, tahunNum, effective);
+      if (res.success && res.rekap) {
+        setRekapData(res.rekap);
+      }
+    }
+  };
 
+  useEffect(() => {
+    setAuth(getStoredAuth());
     loadRekap();
+
+    // Supabase Realtime channel
+    const channel = supabase
+      .channel('realtime_shared_rekap')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'absensi_records' }, () => {
+        loadRekap();
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'izin_records' }, () => {
+        loadRekap();
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, [selectedBulan, selectedTahun, customDaysMap]);
 
   const handleApplyCustomDays = () => {
@@ -209,6 +229,52 @@ export default function DashboardRekapPage() {
     const link = document.createElement("a");
     link.href = url;
     link.download = `Rekap_Presensi_XI_PPLG1_${namaBulan}_${selectedTahun}_${totalEfektif}Hari.xls`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
+  const exportToCSV = () => {
+    const namaBulan = NAMA_BULAN_INDONESIA[parseInt(selectedBulan)] || selectedBulan;
+    const totalEfektif = currentEffectiveDays;
+
+    const headers = [
+      "No",
+      "NISN",
+      "Nama Lengkap",
+      "L/P",
+      "Kelas Hadir (H)",
+      "Kelas Sakit (S)",
+      "Kelas Izin (I)",
+      "Kelas Alpa (A)",
+      "% Kehadiran Kelas",
+      "Sholat Hadir (H)",
+      "Sholat Alpa (A)",
+      "% Sholat Dzuhur",
+    ];
+
+    const rows = rekapData.map((item, idx) => [
+      idx + 1,
+      `"${item.siswa.nis}"`,
+      `"${item.siswa.nama}"`,
+      item.siswa.gender,
+      item.kehadiranKelas.hadir,
+      item.kehadiranKelas.sakit,
+      item.kehadiranKelas.izin,
+      item.kehadiranKelas.alpa,
+      `${item.kehadiranKelas.persentase}%`,
+      item.sholatDzuhur.hadir,
+      item.sholatDzuhur.alpa,
+      `${item.sholatDzuhur.persentase}%`,
+    ]);
+
+    const csvContent = "\uFEFF" + [headers.join(","), ...rows.map(r => r.join(","))].join("\n");
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `Rekap_Presensi_XI_PPLG1_${namaBulan}_${selectedTahun}_${totalEfektif}Hari.csv`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -373,7 +439,7 @@ export default function DashboardRekapPage() {
           </div>
         </div>
 
-        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 w-full md:w-auto">
+        <div className="flex flex-col sm:flex-row flex-wrap items-stretch sm:items-center gap-2.5 w-full md:w-auto">
           {/* Dynamic Effective Days Button */}
           <button
             type="button"
@@ -386,15 +452,31 @@ export default function DashboardRekapPage() {
             <Info className="w-3.5 h-3.5 text-neutral-500" />
           </button>
 
-          <Button
-            variant="green"
-            size="md"
+          {/* Export Excel Button */}
+          <button
+            type="button"
             onClick={exportToExcel}
-            className="justify-center gap-1.5 text-xs sm:text-sm py-2.5"
+            className="group px-4 py-2.5 bg-[#6FCB6F] hover:bg-[#5db85d] text-[#181818] rounded-2xl brutal-border-2 brutal-shadow-sm flex items-center justify-center gap-2 text-xs sm:text-sm font-black transition-all active:translate-x-[2px] active:translate-y-[2px] active:shadow-none cursor-pointer"
+            title="Unduh laporan berformat Excel (.xls) lengkap dengan format tabel resmi"
           >
-            <Download className="w-4 h-4 stroke-[2.5]" />
+            <div className="w-6 h-6 rounded-lg bg-white brutal-border-2 flex items-center justify-center text-emerald-800 shadow-[1px_1px_0px_#181818] shrink-0 group-hover:scale-110 transition-transform">
+              <FileSpreadsheet className="w-3.5 h-3.5 stroke-[2.5]" />
+            </div>
             <span>Export Excel (.xls)</span>
-          </Button>
+          </button>
+
+          {/* Export CSV Button */}
+          <button
+            type="button"
+            onClick={exportToCSV}
+            className="group px-4 py-2.5 bg-[#FFD400] hover:bg-[#eec600] text-[#181818] rounded-2xl brutal-border-2 brutal-shadow-sm flex items-center justify-center gap-2 text-xs sm:text-sm font-black transition-all active:translate-x-[2px] active:translate-y-[2px] active:shadow-none cursor-pointer"
+            title="Unduh data mentah format CSV untuk diolah di Google Sheets / Excel"
+          >
+            <div className="w-6 h-6 rounded-lg bg-white brutal-border-2 flex items-center justify-center text-[#3355FF] shadow-[1px_1px_0px_#181818] shrink-0 group-hover:scale-110 transition-transform">
+              <Download className="w-3.5 h-3.5 stroke-[2.5]" />
+            </div>
+            <span>Export CSV</span>
+          </button>
         </div>
       </div>
 
