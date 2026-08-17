@@ -140,69 +140,78 @@ export default function DashboardSekretarisPage() {
       </div>
 
       {/* 4 Stats Cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="bg-white p-5 rounded-3xl brutal-border-thick brutal-shadow flex flex-col justify-between">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+        {/* Card 1: Hadir Pagi */}
+        <div className="bg-white p-3.5 sm:p-5 rounded-2xl sm:rounded-3xl brutal-border-thick brutal-shadow flex flex-col justify-between gap-2.5">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-black text-neutral-500 uppercase">Hadir Pagi Hari Ini</span>
-            <div className="w-9 h-9 rounded-xl bg-[#3355FF] text-white flex items-center justify-center brutal-border-2">
-              <CheckCircle2 className="w-5 h-5 stroke-[2.5]" />
+            <span className="text-[10px] sm:text-xs font-black text-neutral-500 uppercase tracking-wider">
+              Hadir Pagi
+            </span>
+            <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-[#3355FF] text-white flex items-center justify-center brutal-border-2 shrink-0">
+              <CheckCircle2 className="w-4 h-4 sm:w-5 sm:h-5 stroke-[2.5]" />
             </div>
           </div>
-          <div className="mt-3">
-            <p className="text-3xl font-black font-fredoka text-[#181818]">
-              {todayKelasRecords.length} <span className="text-sm font-bold text-neutral-500">/ 46</span>
+          <div>
+            <p className="text-2xl sm:text-3xl font-black font-fredoka text-[#181818] leading-none">
+              {todayKelasRecords.length} <span className="text-xs sm:text-sm font-bold text-neutral-500">/ 46</span>
             </p>
-            <p className="text-[11px] font-bold text-green-600 mt-1">
+            <p className="text-[10px] sm:text-[11px] font-extrabold text-green-600 mt-1 truncate">
               {Math.round((todayKelasRecords.length / 46) * 100)}% Siswa Sudah Absen
             </p>
           </div>
         </div>
 
-        <div className="bg-white p-5 rounded-3xl brutal-border-thick brutal-shadow flex flex-col justify-between">
+        {/* Card 2: Antrian Foto Masuk */}
+        <div className="bg-white p-3.5 sm:p-5 rounded-2xl sm:rounded-3xl brutal-border-thick brutal-shadow flex flex-col justify-between gap-2.5">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-black text-neutral-500 uppercase">Antrian Foto Masuk</span>
-            <div className="w-9 h-9 rounded-xl bg-[#FFD400] text-[#181818] flex items-center justify-center brutal-border-2">
-              <Clock className="w-5 h-5 stroke-[2.5]" />
+            <span className="text-[10px] sm:text-xs font-black text-neutral-500 uppercase tracking-wider">
+              Antrean Foto
+            </span>
+            <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-[#FFD400] text-[#181818] flex items-center justify-center brutal-border-2 shrink-0">
+              <Clock className="w-4 h-4 sm:w-5 sm:h-5 stroke-[2.5]" />
             </div>
           </div>
-          <div className="mt-3 space-y-2">
-            <p className="text-3xl font-black font-fredoka text-amber-600">
-              {pendingRecords.length} <span className="text-sm font-bold text-neutral-500">Selfie</span>
+          <div className="space-y-1.5">
+            <p className="text-2xl sm:text-3xl font-black font-fredoka text-amber-600 leading-none">
+              {pendingRecords.length} <span className="text-xs sm:text-sm font-bold text-neutral-500">Selfie</span>
             </p>
             <Link
               href="/dashboard/sekretaris/verifikasi"
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-[#3355FF] text-white hover:bg-blue-600 text-[11px] font-black rounded-xl brutal-border-2 shadow-[2px_2px_0px_#181818] active:translate-x-[1px] active:translate-y-[1px] active:shadow-none transition-all group/btn"
+              className="w-full inline-flex items-center justify-center gap-1 py-1 px-2 bg-[#3355FF] text-white hover:bg-blue-600 text-[10px] sm:text-[11px] font-black rounded-lg brutal-border-2 shadow-[1.5px_1.5px_0px_#181818] active:translate-x-[1px] active:translate-y-[1px] active:shadow-none transition-all whitespace-nowrap"
             >
-              <ShieldCheck className="w-3.5 h-3.5 text-white" />
-              <span>Cek Keaslian Foto</span>
-              <ArrowRight className="w-3 h-3 group-hover/btn:translate-x-0.5 transition-transform" />
+              <ShieldCheck className="w-3 h-3 sm:w-3.5 sm:h-3.5 shrink-0" />
+              <span>Verifikasi Foto</span>
+              <ArrowRight className="w-3 h-3 shrink-0" />
             </Link>
           </div>
         </div>
 
-        <div className="bg-white p-5 rounded-3xl brutal-border-thick brutal-shadow flex flex-col justify-between">
+        {/* Card 3: Status Token QR */}
+        <div className="bg-white p-3.5 sm:p-5 rounded-2xl sm:rounded-3xl brutal-border-thick brutal-shadow flex flex-col justify-between gap-2.5">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-black text-neutral-500 uppercase">Status Token QR</span>
-            <div className={`w-9 h-9 rounded-xl ${activeSesi ? "bg-[#6FCB6F] text-[#181818]" : "bg-neutral-200 text-neutral-500"} flex items-center justify-center brutal-border-2`}>
-              <QrCode className="w-5 h-5 stroke-[2.5]" />
+            <span className="text-[10px] sm:text-xs font-black text-neutral-500 uppercase tracking-wider">
+              Status Token
+            </span>
+            <div className={`w-8 h-8 sm:w-9 sm:h-9 rounded-xl ${activeSesi ? "bg-[#6FCB6F] text-[#181818]" : "bg-neutral-200 text-neutral-500"} flex items-center justify-center brutal-border-2 shrink-0`}>
+              <QrCode className="w-4 h-4 sm:w-5 sm:h-5 stroke-[2.5]" />
             </div>
           </div>
-          <div className="mt-3">
+          <div>
             {activeSesi ? (
               <>
-                <p className="text-sm font-black text-[#181818] font-mono">
+                <p className="text-xs sm:text-sm font-black text-[#181818] font-mono truncate">
                   {activeSesi.token}
                 </p>
-                <p className="text-[11px] font-bold text-green-600 mt-1">
+                <p className="text-[10px] sm:text-[11px] font-bold text-green-600 mt-0.5 truncate">
                   Aktif • Siap di Proyektor
                 </p>
               </>
             ) : (
               <>
-                <p className="text-sm font-black text-neutral-400 font-mono">
+                <p className="text-xs sm:text-sm font-black text-neutral-400 font-mono">
                   BELUM AKTIF
                 </p>
-                <p className="text-[11px] font-bold text-neutral-400 mt-1">
+                <p className="text-[10px] sm:text-[11px] font-bold text-neutral-400 mt-0.5">
                   Sesi Belum Dibuat
                 </p>
               </>
@@ -210,19 +219,22 @@ export default function DashboardSekretarisPage() {
           </div>
         </div>
 
-        <div className="bg-white p-5 rounded-3xl brutal-border-thick brutal-shadow flex flex-col justify-between">
+        {/* Card 4: Total Siswa XI PPLG 1 */}
+        <div className="bg-white p-3.5 sm:p-5 rounded-2xl sm:rounded-3xl brutal-border-thick brutal-shadow flex flex-col justify-between gap-2.5">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-black text-neutral-500 uppercase">Total Siswa XI PPLG 1</span>
-            <div className="w-9 h-9 rounded-xl bg-[#FF6FA5] text-[#181818] flex items-center justify-center brutal-border-2">
-              <Users className="w-5 h-5 stroke-[2.5]" />
+            <span className="text-[10px] sm:text-xs font-black text-neutral-500 uppercase tracking-wider">
+              Total Siswa
+            </span>
+            <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-[#FF6FA5] text-[#181818] flex items-center justify-center brutal-border-2 shrink-0">
+              <Users className="w-4 h-4 sm:w-5 sm:h-5 stroke-[2.5]" />
             </div>
           </div>
-          <div className="mt-3">
-            <p className="text-3xl font-black font-fredoka text-[#181818]">
-              46 <span className="text-sm font-bold text-neutral-500">Siswa</span>
+          <div>
+            <p className="text-2xl sm:text-3xl font-black font-fredoka text-[#181818] leading-none">
+              46 <span className="text-xs sm:text-sm font-bold text-neutral-500">Siswa</span>
             </p>
-            <p className="text-[11px] font-bold text-neutral-500 mt-1">
-              Data Lengkap & Sinkron
+            <p className="text-[10px] sm:text-[11px] font-bold text-neutral-500 mt-1 truncate">
+              Data Lengkap &amp; Sinkron
             </p>
           </div>
         </div>

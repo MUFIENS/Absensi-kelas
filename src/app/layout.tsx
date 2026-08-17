@@ -56,9 +56,13 @@ export default function RootLayout({
     <html
       lang="id"
       data-scroll-behavior="smooth"
+      suppressHydrationWarning
       className={`${fredoka.variable} ${lilitaOne.variable} ${plusJakartaSans.variable} scroll-smooth`}
     >
-      <body className="min-h-screen flex flex-col bg-[#F8F8F5] text-[#181818] font-sans antialiased selection:bg-[#FFD400] selection:text-[#181818]">
+      <body
+        suppressHydrationWarning
+        className="min-h-screen flex flex-col bg-[#F8F8F5] text-[#181818] font-sans antialiased selection:bg-[#FFD400] selection:text-[#181818]"
+      >
         <SmoothScrollProvider>
           {children}
         </SmoothScrollProvider>

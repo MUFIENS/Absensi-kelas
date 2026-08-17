@@ -77,7 +77,7 @@ export function DashboardHeader({
       <div className="flex items-center gap-2 shrink-0">
         <div className="hidden md:flex items-center gap-1.5 bg-[#F4F4F0] px-3 py-1.5 rounded-xl brutal-border-2 font-mono font-black text-xs text-[#181818]">
           <Clock className="w-3.5 h-3.5 text-[#3355FF]" />
-          <span>{currentTime || "07:00:00 WIB"}</span>
+          <span suppressHydrationWarning>{currentTime || "07:00:00 WIB"}</span>
         </div>
 
         {auth ? (

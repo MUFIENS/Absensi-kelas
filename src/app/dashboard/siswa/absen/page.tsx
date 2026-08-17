@@ -688,7 +688,7 @@ function SiswaAbsenContent() {
                     <Button
                       variant="yellow"
                       size="md"
-                      onClick={() => startCamera("environment")}
+                      onClick={() => startCamera(cameraFacing)}
                       className="gap-2 text-xs w-full justify-center text-[#181818] font-black"
                     >
                       <Camera className="w-4 h-4 stroke-[2.5]" />
@@ -698,9 +698,22 @@ function SiswaAbsenContent() {
                 )}
 
                 {isCameraActive && (
-                  <div className="absolute inset-0 pointer-events-none flex items-center justify-center">
-                    <div className="w-48 h-48 border-4 border-[#FFD400] rounded-3xl relative animate-pulse" />
-                  </div>
+                  <>
+                    <div className="absolute inset-0 pointer-events-none flex items-center justify-center">
+                      <div className="w-48 h-48 border-4 border-[#FFD400] rounded-3xl relative animate-pulse" />
+                    </div>
+
+                    {/* Switch Camera Button (Depan / Belakang) */}
+                    <button
+                      type="button"
+                      onClick={toggleCamera}
+                      className="absolute top-3 right-3 z-10 bg-[#181818]/85 hover:bg-black text-white px-2.5 py-1.5 rounded-xl brutal-border-2 flex items-center gap-1.5 text-[11px] font-bold transition-all shadow-md active:scale-95 cursor-pointer"
+                      title="Putar Kamera Depan / Belakang"
+                    >
+                      <FlipHorizontal className="w-3.5 h-3.5 text-[#FFD400]" />
+                      <span>{cameraFacing === "environment" ? "Kamera Depan" : "Kamera Belakang"}</span>
+                    </button>
+                  </>
                 )}
               </div>
             )}
@@ -912,14 +925,26 @@ function SiswaAbsenContent() {
                     <div className="w-44 h-56 border-4 border-dashed border-[#FF6FA5] rounded-full opacity-70" />
                   </div>
 
+                  {isCameraActive && (
+                    <button
+                      type="button"
+                      onClick={toggleCamera}
+                      className="absolute top-3 right-3 z-10 bg-[#181818]/85 hover:bg-black text-white px-2.5 py-1.5 rounded-xl brutal-border-2 flex items-center gap-1.5 text-[11px] font-bold transition-all shadow-md active:scale-95 cursor-pointer"
+                      title="Putar Kamera Depan / Belakang"
+                    >
+                      <FlipHorizontal className="w-3.5 h-3.5 text-[#FFD400]" />
+                      <span>{cameraFacing === "user" ? "Kamera Belakang" : "Kamera Depan"}</span>
+                    </button>
+                  )}
+
                   {!isCameraActive && (
                     <div className="absolute inset-0 bg-[#181818]/90 p-6 flex flex-col items-center justify-center text-center text-white space-y-3">
                       <Camera className="w-12 h-12 text-[#FFD400]" />
-                      <p className="text-xs font-bold">Kamera depan belum menyala.</p>
+                      <p className="text-xs font-bold">Kamera selfie belum menyala.</p>
                       <Button
                         variant="yellow"
                         size="sm"
-                        onClick={() => startCamera("user")}
+                        onClick={() => startCamera(cameraFacing)}
                       >
                         Nyalakan Kamera Selfie
                       </Button>
