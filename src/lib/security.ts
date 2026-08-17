@@ -38,20 +38,15 @@ export function constantTimeCompare(a: string, b: string): boolean {
   return result === 0;
 }
 
-// 3. Input Sanitization & HTML Entity Encoding (Anti-XSS & Data Hygiene)
+// 3. Input Sanitization (Anti-XSS, Stripping Control Characters & Null Bytes)
 export function sanitizeInputText(input: string): string {
   if (!input || typeof input !== "string") return "";
   
-  const map: Record<string, string> = {
-    "&": "&amp;",
-    "<": "&lt;",
-    ">": "&gt;",
-    '"': "&quot;",
-    "'": "&#x27;",
-    "/": "&#x2F;",
-  };
+  // Remove null bytes and dangerous control characters
+  const clean = input.replace(/\0/g, "").replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, "");
   
-  return input.replace(/[&<>"'/]/g, (char) => map[char] || char).trim();
+  // Strip HTML tags (<script> etc.) while keeping legitimate punctuation like apostrophes, periods, commas, slashes
+  return clean.replace(/<[^>]*>?/gm, "").trim();
 }
 
 // 4. Excel / CSV Formula Injection (CWE-1236) Protection

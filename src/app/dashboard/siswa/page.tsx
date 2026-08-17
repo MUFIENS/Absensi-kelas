@@ -15,7 +15,7 @@ import { Card } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import { getStoredAuth } from "@/lib/store";
 import { supabase } from "@/lib/supabaseClient";
-import { getJakartaDateString } from "@/lib/dateUtils";
+import { getJakartaDateString, formatWIBTime } from "@/lib/dateUtils";
 import { AuthSession, AbsensiRecord, IzinRecord, Siswa, JenisAbsensi, StatusAbsensi, KategoriIzin } from "@/lib/types";
 
 export default function DashboardSiswaPage() {
@@ -133,31 +133,33 @@ export default function DashboardSiswaPage() {
   return (
     <div className="max-w-5xl mx-auto space-y-6">
       {/* Student Profile & Quick Presensi Banner */}
-      <div className="bg-[#3355FF] text-white p-6 sm:p-8 rounded-[36px] brutal-border-thick brutal-shadow-lg relative overflow-hidden bg-comic-dots-light">
-        <div className="relative z-10 flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
-          <div className="space-y-2">
-            <div className="inline-flex items-center gap-2 bg-[#FFD400] text-[#181818] px-3.5 py-1 rounded-xl brutal-border-2 font-black text-xs">
-              <AppIcon name="student" className="w-4 h-4 text-[#3355FF]" />
+      <div className="bg-[#3355FF] text-white p-4 sm:p-6 md:p-8 rounded-2xl sm:rounded-[32px] brutal-border-thick brutal-shadow-lg relative overflow-hidden bg-comic-dots-light">
+        <div className="relative z-10 flex flex-col md:flex-row items-start md:items-center justify-between gap-4 sm:gap-6">
+          <div className="space-y-1.5 sm:space-y-2">
+            <div className="inline-flex items-center gap-1.5 sm:gap-2 bg-[#FFD400] text-[#181818] px-2.5 sm:px-3.5 py-0.5 sm:py-1 rounded-lg sm:rounded-xl brutal-border-2 font-black text-[10px] sm:text-xs">
+              <AppIcon name="student" className="w-3.5 h-3.5 text-[#3355FF]" />
               <span>PORTAL SISWA XI PPLG 1</span>
             </div>
 
-            <h2 className="text-2xl sm:text-4xl font-black font-fredoka leading-tight tracking-tight">
+            <h2 className="text-xl sm:text-3xl md:text-4xl font-black font-fredoka leading-tight tracking-tight">
               Yo, {auth?.user.nama.split(" ")[0] || "Siswa"}! Udah di Kelas?
             </h2>
 
             {auth && auth.role === "siswa" && (
-              <p className="text-xs sm:text-sm font-bold text-white/90">
+              <p className="text-[11px] sm:text-sm font-bold text-white/90">
                 NISN: <strong className="font-mono text-[#FFD400]">{(auth.user as Siswa).nis}</strong> • Absen: <strong className="font-mono text-[#FFD400]">#{(auth.user as Siswa).nomorAbsen}</strong> • Kelas XI PPLG 1
               </p>
             )}
           </div>
 
-          <Link href="/dashboard/siswa/absen">
-            <Button variant="yellow" size="xl" className="gap-2.5 shadow-lg">
-              <AppIcon name="camera-selfie" className="w-6 h-6" />
-              <span>SCAN PRESENSI SEKARANG</span>
-            </Button>
-          </Link>
+          <div className="w-full md:w-auto">
+            <Link href="/dashboard/siswa/absen" className="block w-full">
+              <Button variant="yellow" size="md" className="w-full sm:w-auto justify-center gap-2 font-black text-xs sm:text-sm py-2.5 sm:py-3 shadow-[2.5px_2.5px_0px_#181818]">
+                <AppIcon name="camera-selfie" className="w-4 h-4 sm:w-5 sm:h-5" />
+                <span>SCAN PRESENSI SEKARANG</span>
+              </Button>
+            </Link>
+          </div>
         </div>
       </div>
 
@@ -186,9 +188,9 @@ export default function DashboardSiswaPage() {
 
           {todayKelasRecord ? (
             <div className="p-4 bg-green-50 rounded-2xl border-2 border-green-400 space-y-2">
-              <div className="flex items-center gap-2 text-green-800 font-bold text-xs">
+              <div className="flex items-center gap-2 text-green-800 font-bold text-xs" suppressHydrationWarning>
                 <AppIcon name="check" className="w-4 h-4 text-green-600" />
-                <span>Mantap! Presensi pagi kamu udah kecatat pukul {new Date(todayKelasRecord.waktuAbsen).toLocaleTimeString("id-ID")} WIB</span>
+                <span suppressHydrationWarning>Mantap! Presensi pagi kamu udah kecatat pukul {formatWIBTime(todayKelasRecord.waktuAbsen)}</span>
               </div>
             </div>
           ) : (
@@ -229,9 +231,9 @@ export default function DashboardSiswaPage() {
 
           {todaySholatRecord ? (
             <div className="p-4 bg-green-50 rounded-2xl border-2 border-green-400 space-y-2">
-              <div className="flex items-center gap-2 text-green-800 font-bold text-xs">
+              <div className="flex items-center gap-2 text-green-800 font-bold text-xs" suppressHydrationWarning>
                 <CheckCircle2 className="w-4 h-4 text-green-600" />
-                <span>Alhamdulillah! Presensi sholat kamu udah kecatat pukul {new Date(todaySholatRecord.waktuAbsen).toLocaleTimeString("id-ID")} WIB</span>
+                <span suppressHydrationWarning>Alhamdulillah! Presensi sholat kamu udah kecatat pukul {formatWIBTime(todaySholatRecord.waktuAbsen)}</span>
               </div>
             </div>
           ) : (

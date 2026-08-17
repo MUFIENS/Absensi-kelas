@@ -3,12 +3,12 @@
 import React, { useState, useEffect } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import Link from "next/link";
-import { Lock, LogIn, Sparkles, ShieldAlert } from "lucide-react";
+import { Lock, LogIn, Sparkles, ShieldAlert, LogOut } from "lucide-react";
 import { DashboardSidebar } from "@/components/dashboard/DashboardSidebar";
 import { DashboardHeader } from "@/components/dashboard/DashboardHeader";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
-import { getStoredAuth } from "@/lib/store";
+import { getStoredAuth, logout } from "@/lib/store";
 import { AuthSession } from "@/lib/types";
 
 export default function DashboardLayout({
@@ -119,16 +119,23 @@ export default function DashboardLayout({
               Akses Tidak Diizinkan!
             </h2>
             <p className="text-xs sm:text-sm font-bold text-neutral-600">
-              Akun kamu ({auth.role.toUpperCase()}) tidak memiliki izin untuk mengakses halaman ini.
+              Anda tidak memiliki izin untuk mengakses halaman ini.
             </p>
           </div>
 
           <div className="pt-2 space-y-2">
-            <Link href={targetDashboard} className="block">
-              <Button variant="primary" size="lg" className="w-full justify-center gap-2">
-                <span>Kembali ke Dashboard Saya</span>
-              </Button>
-            </Link>
+            <Button
+              variant="primary"
+              size="lg"
+              onClick={() => {
+                logout();
+                window.location.href = "/login";
+              }}
+              className="w-full justify-center gap-2 font-black"
+            >
+              <LogOut className="w-5 h-5 stroke-[2.5]" />
+              <span>Keluar & Kembali ke Login</span>
+            </Button>
           </div>
         </Card>
       </div>
@@ -145,7 +152,7 @@ export default function DashboardLayout({
       />
 
       {/* Main App Content Body */}
-      <div className="flex-1 flex flex-col h-full min-w-0 overflow-hidden">
+      <div className="flex-1 flex flex-col h-full min-w-0 w-full overflow-hidden">
         <DashboardHeader
           auth={auth}
           onToggleSidebar={() => setSidebarOpen(!sidebarOpen)}
@@ -153,7 +160,7 @@ export default function DashboardLayout({
 
         <main
           data-lenis-prevent="true"
-          className="flex-1 p-3 sm:p-5 lg:p-8 overflow-y-auto overscroll-contain"
+          className="flex-1 p-2.5 sm:p-5 lg:p-8 overflow-y-auto overflow-x-hidden overscroll-contain"
         >
           {children}
         </main>

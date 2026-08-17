@@ -439,50 +439,58 @@ export default function GuruVerifikasiPage() {
       </div>
 
       {/* Status Filter Tabs & Batch Action */}
-      <div className="bg-white p-2.5 sm:p-4 rounded-2xl sm:rounded-3xl brutal-border-thick brutal-shadow-lg flex flex-col md:flex-row items-stretch md:items-center justify-between gap-2.5 sm:gap-4">
-        <div className="grid grid-cols-4 gap-1 p-1 bg-neutral-100 rounded-xl sm:rounded-2xl w-full md:w-auto">
+      <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
+        {/* Status Filter Tabs (2 cols on mobile, 4 cols on desktop) */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 w-full md:w-auto">
           <button
+            type="button"
             onClick={() => setStatusFilter("pending")}
-            className={`py-2 px-1 sm:px-3 rounded-lg sm:rounded-xl text-[10px] sm:text-xs font-black transition-all flex items-center justify-center gap-1 ${
+            className={`py-2 sm:py-2.5 px-2.5 sm:px-4 rounded-2xl font-black text-xs transition-all flex items-center justify-center gap-1.5 cursor-pointer min-w-0 ${
               statusFilter === "pending"
-                ? "bg-[#FFD400] text-[#181818] brutal-border-2 brutal-shadow-sm"
-                : "text-neutral-600 hover:text-black"
+                ? "bg-[#FFD400] text-[#181818] brutal-border-2 brutal-shadow-sm scale-[1.02]"
+                : "bg-white text-neutral-600 hover:text-black brutal-border-2 border-neutral-300 hover:border-[#181818] shadow-[1.5px_1.5px_0px_#181818]"
             }`}
           >
-            <Clock className="w-3 h-3 hidden sm:block" />
-            <span>Pending ({pendingCount})</span>
+            <Clock className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />
+            <span className="truncate">Pending ({pendingCount})</span>
           </button>
+
           <button
+            type="button"
             onClick={() => setStatusFilter("verified")}
-            className={`py-2 px-1 sm:px-3 rounded-lg sm:rounded-xl text-[10px] sm:text-xs font-black transition-all flex items-center justify-center gap-1 ${
+            className={`py-2 sm:py-2.5 px-2.5 sm:px-4 rounded-2xl font-black text-xs transition-all flex items-center justify-center gap-1.5 cursor-pointer min-w-0 ${
               statusFilter === "verified"
-                ? "bg-[#6FCB6F] text-[#181818] brutal-border-2 brutal-shadow-sm"
-                : "text-neutral-600 hover:text-black"
+                ? "bg-[#6FCB6F] text-[#181818] brutal-border-2 brutal-shadow-sm scale-[1.02]"
+                : "bg-white text-neutral-600 hover:text-black brutal-border-2 border-neutral-300 hover:border-[#181818] shadow-[1.5px_1.5px_0px_#181818]"
             }`}
           >
-            <CheckCircle className="w-3 h-3 hidden sm:block" />
-            <span>Sah ({verifiedCount})</span>
+            <CheckCircle className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />
+            <span className="truncate">Sah ({verifiedCount})</span>
           </button>
+
           <button
+            type="button"
             onClick={() => setStatusFilter("rejected")}
-            className={`py-2 px-1 sm:px-3 rounded-lg sm:rounded-xl text-[10px] sm:text-xs font-black transition-all flex items-center justify-center gap-1 ${
+            className={`py-2 sm:py-2.5 px-2.5 sm:px-4 rounded-2xl font-black text-xs transition-all flex items-center justify-center gap-1.5 cursor-pointer min-w-0 ${
               statusFilter === "rejected"
-                ? "bg-[#FF4D4D] text-white brutal-border-2 brutal-shadow-sm"
-                : "text-neutral-600 hover:text-black"
+                ? "bg-[#FF4D4D] text-white brutal-border-2 brutal-shadow-sm scale-[1.02]"
+                : "bg-white text-neutral-600 hover:text-black brutal-border-2 border-neutral-300 hover:border-[#181818] shadow-[1.5px_1.5px_0px_#181818]"
             }`}
           >
-            <XCircle className="w-3 h-3 hidden sm:block" />
-            <span>Tolak ({rejectedCount})</span>
+            <XCircle className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />
+            <span className="truncate">Tolak ({rejectedCount})</span>
           </button>
+
           <button
+            type="button"
             onClick={() => setStatusFilter("all")}
-            className={`py-2 px-1 sm:px-3 rounded-lg sm:rounded-xl text-[10px] sm:text-xs font-black transition-all flex items-center justify-center ${
+            className={`py-2 sm:py-2.5 px-2.5 sm:px-4 rounded-2xl font-black text-xs transition-all flex items-center justify-center gap-1.5 cursor-pointer min-w-0 ${
               statusFilter === "all"
-                ? "bg-[#3355FF] text-white brutal-border-2 brutal-shadow-sm"
-                : "text-neutral-600 hover:text-black"
+                ? "bg-[#3355FF] text-white brutal-border-2 brutal-shadow-sm scale-[1.02]"
+                : "bg-white text-neutral-600 hover:text-black brutal-border-2 border-neutral-300 hover:border-[#181818] shadow-[1.5px_1.5px_0px_#181818]"
             }`}
           >
-            <span>Semua ({totalCount})</span>
+            <span className="truncate">Semua ({totalCount})</span>
           </button>
         </div>
 
@@ -490,12 +498,12 @@ export default function GuruVerifikasiPage() {
           {pendingCount > 0 && statusFilter === "pending" && (
             <Button
               variant="green"
-              size="sm"
+              size="md"
               onClick={handleBatchApprovePending}
-              className="gap-1.5 text-xs font-black"
+              className="w-full sm:w-auto justify-center gap-2 text-xs font-black py-2.5"
             >
               <CheckSquare className="w-4 h-4 stroke-[2.5]" />
-              <span>Setujui Semua Pending ({pendingCount})</span>
+              <span>Setujui Semua ({pendingCount})</span>
             </Button>
           )}
         </div>

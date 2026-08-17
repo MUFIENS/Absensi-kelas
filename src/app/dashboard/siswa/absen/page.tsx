@@ -3,7 +3,6 @@
 import React, { useState, useEffect, useRef, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
-import confetti from "canvas-confetti";
 import jsQR from "jsqr";
 import {
   Camera,
@@ -39,7 +38,7 @@ import {
 } from "@/lib/store";
 import { supabase } from "@/lib/supabaseClient";
 import { submitAbsensiAction } from "@/app/actions/absensiActions";
-import { getJakartaDateString } from "@/lib/dateUtils";
+import { getJakartaDateString, formatWIBTime } from "@/lib/dateUtils";
 import { AuthSession, Siswa, JenisAbsensi, QRSesi, LokasiPresensi } from "@/lib/types";
 import { APP_CONFIG, calculateDistanceMeters } from "@/lib/env";
 
@@ -63,6 +62,7 @@ function SiswaAbsenContent() {
   const [uploadPreview, setUploadPreview] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const [isCameraActive, setIsCameraActive] = useState<boolean>(false);
+  const [cameraNotice, setCameraNotice] = useState<string>("");
 
   // Geolocation & Geofencing State
   const [location, setLocation] = useState<LokasiPresensi | null>(null);
@@ -125,6 +125,13 @@ function SiswaAbsenContent() {
       stopCamera();
     };
   }, [searchParams]);
+
+  useEffect(() => {
+    if (cameraNotice) {
+      const timer = setTimeout(() => setCameraNotice(""), 6000);
+      return () => clearTimeout(timer);
+    }
+  }, [cameraNotice]);
 
   const processLocationCoords = (pos: GeolocationPosition) => {
     const lat = pos.coords.latitude;
@@ -280,23 +287,48 @@ function SiswaAbsenContent() {
   };
 
   const toggleCamera = async () => {
-    const nextMode = cameraFacing === "environment" ? "user" : "environment";
-    setCameraFacing(nextMode);
-    await startCamera(nextMode);
+    setCameraNotice("");
+    setErrorMsg("");
+    const nextMode: "user" | "environment" = cameraFacing === "environment" ? "user" : "environment";
+
+    // Cek ketersediaan kamera di perangkat sebelum switch
+    if (typeof navigator !== "undefined" && navigator.mediaDevices?.enumerateDevices) {
+      try {
+        const devices = await navigator.mediaDevices.enumerateDevices();
+        const videoDevices = devices.filter((d) => d.kind === "videoinput");
+
+        // Jika hanya 1 video device (misal laptop/webcam)
+        if (videoDevices.length <= 1) {
+          setCameraNotice("Kamera belakang tidak terdeteksi pada perangkat ini.");
+          return;
+        }
+      } catch (e) {
+        console.warn("Gagal mengecek daftar kamera:", e);
+      }
+    }
+
+    const success = await startCamera(nextMode);
+    if (success) {
+      setCameraFacing(nextMode);
+    } else {
+      setCameraNotice("Kamera belakang tidak terdeteksi pada perangkat ini.");
+      setCameraFacing("user");
+      await startCamera("user");
+    }
   };
 
-  const startCamera = async (facingMode?: "user" | "environment") => {
+  const startCamera = async (facingMode?: "user" | "environment"): Promise<boolean> => {
     const targetFacing = facingMode || cameraFacing;
     stopCamera();
     try {
       if (typeof navigator === "undefined" || !navigator.mediaDevices?.getUserMedia) {
         setErrorMsg("Browser ini tidak mendukung akses kamera.");
-        return;
+        return false;
       }
 
       const stream = await navigator.mediaDevices.getUserMedia({
         video: {
-          facingMode: { ideal: targetFacing },
+          facingMode: targetFacing === "environment" ? { ideal: "environment" } : { ideal: "user" },
           width: { ideal: 720 },
           height: { ideal: 720 },
         },
@@ -324,14 +356,41 @@ function SiswaAbsenContent() {
       if (step === 1 && scanMode === "camera") {
         startQRScanning();
       }
+      return true;
     } catch (err: unknown) {
       const errObj = err as { name?: string; message?: string } | null;
       const isAbort = errObj?.name === "AbortError" || errObj?.message?.includes("interrupted");
       if (!isAbort) {
         console.error("Camera access error:", err);
-        setErrorMsg("Kamera tidak dapat diakses. Mohon izinkan izin kamera di browser kamu.");
+        if (targetFacing === "environment") {
+          // Fallback coba kamera depan tanpa banner otomatis
+          setCameraFacing("user");
+          try {
+            const fallbackStream = await navigator.mediaDevices.getUserMedia({
+              video: { facingMode: { ideal: "user" }, width: { ideal: 720 }, height: { ideal: 720 } },
+              audio: false,
+            });
+            streamRef.current = fallbackStream;
+            if (videoRef.current) {
+              videoRef.current.srcObject = fallbackStream;
+              videoRef.current.onloadedmetadata = () => {
+                videoRef.current?.play().catch(() => {});
+              };
+              setIsCameraActive(true);
+            }
+            if (step === 1 && scanMode === "camera") {
+              startQRScanning();
+            }
+            return true;
+          } catch {
+            setErrorMsg("Kamera tidak dapat diakses. Mohon izinkan izin kamera di browser kamu.");
+          }
+        } else {
+          setErrorMsg("Kamera tidak dapat diakses. Mohon izinkan izin kamera di browser kamu.");
+        }
       }
       setIsCameraActive(false);
+      return false;
     }
   };
 
@@ -368,9 +427,9 @@ function SiswaAbsenContent() {
       const canvas = canvasRef.current;
       const ctx = canvas.getContext("2d", { willReadFrequently: true });
 
-      if (video.readyState === video.HAVE_ENOUGH_DATA && ctx) {
-        canvas.width = video.videoWidth;
-        canvas.height = video.videoHeight;
+      if (video.readyState === video.HAVE_ENOUGH_DATA && ctx && video.videoWidth > 0) {
+        if (canvas.width !== video.videoWidth) canvas.width = video.videoWidth;
+        if (canvas.height !== video.videoHeight) canvas.height = video.videoHeight;
         ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
 
         const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
@@ -411,9 +470,19 @@ function SiswaAbsenContent() {
         const ctx = canvas.getContext("2d", { willReadFrequently: true });
         if (!ctx) return;
 
-        canvas.width = image.width;
-        canvas.height = image.height;
-        ctx.drawImage(image, 0, 0);
+        // Downscale oversized images to max 960px to prevent mobile RAM crash
+        let w = image.width;
+        let h = image.height;
+        const maxDim = 960;
+        if (w > maxDim || h > maxDim) {
+          const ratio = Math.min(maxDim / w, maxDim / h);
+          w = Math.round(w * ratio);
+          h = Math.round(h * ratio);
+        }
+
+        canvas.width = w;
+        canvas.height = h;
+        ctx.drawImage(image, 0, 0, w, h);
 
         const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
         const code = jsQR(imageData.data, imageData.width, imageData.height);
@@ -496,14 +565,20 @@ function SiswaAbsenContent() {
 
       ctx.drawImage(video, startX, startY, minDim, minDim, 0, 0, 480, 480);
 
-      // Server Timestamp Overlay
+      ctx.imageSmoothingEnabled = true;
+      ctx.imageSmoothingQuality = "high";
+
+      // Server Timestamp Overlay (Asia/Jakarta Guaranteed)
       const now = new Date();
-      const timestampStr = now.toLocaleDateString("id-ID", {
+      const datePart = now.toLocaleDateString("id-ID", {
         weekday: "short",
         day: "numeric",
         month: "short",
         year: "numeric",
-      }) + " " + now.toLocaleTimeString("id-ID") + " WIB";
+        timeZone: "Asia/Jakarta",
+      });
+      const timePart = formatWIBTime(now);
+      const timestampStr = `${datePart} ${timePart}`;
 
       ctx.fillStyle = "rgba(24, 24, 24, 0.85)";
       ctx.fillRect(0, 395, 480, 85);
@@ -565,11 +640,16 @@ function SiswaAbsenContent() {
 
       if (res.success) {
         setStep(3);
-        confetti({
-          particleCount: 100,
-          spread: 70,
-          origin: { y: 0.6 },
-        });
+        try {
+          const confetti = (await import("canvas-confetti")).default;
+          confetti({
+            particleCount: 100,
+            spread: 70,
+            origin: { y: 0.6 },
+          });
+        } catch {
+          // Non-critical celebration effect fallback
+        }
       } else {
         setErrorMsg(res.message || "Gagal mengirim absensi.");
       }
@@ -665,53 +745,71 @@ function SiswaAbsenContent() {
 
             {/* TAB 1: LIVE CAMERA SCANNER */}
             {scanMode === "camera" && (
-              <div className="relative w-full max-w-sm mx-auto bg-[#181818] rounded-3xl brutal-border-thick overflow-hidden flex flex-col items-center justify-center min-h-[290px] p-4 text-center">
+              <div className="relative w-full max-w-[320px] sm:max-w-[340px] mx-auto aspect-square bg-black rounded-3xl overflow-hidden shadow-xl flex flex-col items-center justify-center text-center">
                 <video
                   ref={videoRef}
                   playsInline
                   autoPlay
                   muted
-                  className={`w-full h-full object-cover rounded-2xl ${isCameraActive ? "block" : "hidden"}`}
+                  className={`absolute inset-0 w-full h-full object-cover ${isCameraActive ? "block" : "hidden"}`}
                 />
 
                 {!isCameraActive && (
-                  <div className="space-y-3.5 text-white max-w-[260px] mx-auto py-4">
+                  <div className="relative z-10 space-y-3.5 text-white max-w-[260px] mx-auto py-6 p-4">
                     <div className="w-14 h-14 rounded-2xl bg-white/10 flex items-center justify-center mx-auto border border-white/20">
                       <QrCode className="w-8 h-8 text-[#FFD400]" />
                     </div>
                     <div>
                       <h4 className="text-sm font-black font-fredoka text-white">Scanner Belum Nyala</h4>
-                      <p className="text-xs font-bold text-neutral-300 mt-0.5">
+                      <p className="text-[11px] font-bold text-neutral-300 mt-1">
                         Arahkan kamera HP kamu ke QR Code di layar proyektor.
                       </p>
                     </div>
                     <Button
                       variant="yellow"
-                      size="md"
+                      size="sm"
                       onClick={() => startCamera(cameraFacing)}
-                      className="gap-2 text-xs w-full justify-center text-[#181818] font-black"
+                      className="gap-2 text-xs w-full justify-center text-[#181818] font-black py-2.5"
                     >
                       <Camera className="w-4 h-4 stroke-[2.5]" />
-                      <span>Nyalakan Kamera Scanner</span>
+                      <span>Nyalakan Kamera</span>
                     </Button>
+                  </div>
+                )}
+
+                {/* Camera Notice Toast (Kamera Belakang Tidak Terdeteksi) */}
+                {cameraNotice && (
+                  <div className="absolute top-3 left-3 right-14 z-30 bg-[#FFD400] text-[#181818] p-2 rounded-xl brutal-border-2 brutal-shadow-sm flex items-center justify-between gap-2 animate-in slide-in-from-top-2 duration-200">
+                    <div className="flex items-center gap-1.5 text-[11px] font-black text-left">
+                      <AlertCircle className="w-3.5 h-3.5 text-amber-900 shrink-0 stroke-[2.5]" />
+                      <span>{cameraNotice}</span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setCameraNotice("")}
+                      className="w-5 h-5 rounded-md bg-black/10 hover:bg-black/20 flex items-center justify-center text-[10px] font-black cursor-pointer shrink-0"
+                    >
+                      ✕
+                    </button>
                   </div>
                 )}
 
                 {isCameraActive && (
                   <>
+                    {/* Clean Static QR Box Frame (Tanpa Animasi/Efek Scan) */}
                     <div className="absolute inset-0 pointer-events-none flex items-center justify-center">
-                      <div className="w-48 h-48 border-4 border-[#FFD400] rounded-3xl relative animate-pulse" />
+                      <div className="w-48 h-48 rounded-2xl border-2 border-[#FFD400]" />
                     </div>
 
-                    {/* Switch Camera Button (Depan / Belakang) */}
+                    {/* Icon-Only Switch Camera Button */}
                     <button
                       type="button"
                       onClick={toggleCamera}
-                      className="absolute top-3 right-3 z-10 bg-[#181818]/85 hover:bg-black text-white px-2.5 py-1.5 rounded-xl brutal-border-2 flex items-center gap-1.5 text-[11px] font-bold transition-all shadow-md active:scale-95 cursor-pointer"
-                      title="Putar Kamera Depan / Belakang"
+                      className="absolute top-3 right-3 z-20 w-10 h-10 rounded-xl bg-white hover:bg-[#FFD400] text-[#181818] brutal-border-2 brutal-shadow-sm flex items-center justify-center transition-all active:scale-90 cursor-pointer group shadow"
+                      title={cameraFacing === "environment" ? "Ganti ke Kamera Depan" : "Ganti ke Kamera Belakang"}
+                      aria-label="Ganti Kamera"
                     >
-                      <FlipHorizontal className="w-3.5 h-3.5 text-[#FFD400]" />
-                      <span>{cameraFacing === "environment" ? "Kamera Depan" : "Kamera Belakang"}</span>
+                      <FlipHorizontal className="w-4 h-4 stroke-[2.5] text-[#181818] group-hover:rotate-180 transition-transform duration-300" />
                     </button>
                   </>
                 )}
@@ -905,7 +1003,7 @@ function SiswaAbsenContent() {
             </div>
 
             {/* Selfie Video & Preview Box */}
-            <div className="relative w-full aspect-square max-w-sm mx-auto bg-[#181818] rounded-3xl brutal-border-thick overflow-hidden flex items-center justify-center">
+            <div className="relative w-full aspect-square max-w-[320px] sm:max-w-[340px] mx-auto bg-black rounded-3xl overflow-hidden shadow-xl flex items-center justify-center">
               {capturedPhoto ? (
                 <img
                   src={capturedPhoto}
@@ -919,21 +1017,35 @@ function SiswaAbsenContent() {
                     playsInline
                     autoPlay
                     muted
-                    className="w-full h-full object-cover"
+                    className="absolute inset-0 w-full h-full object-cover"
                   />
-                  <div className="absolute inset-0 pointer-events-none flex items-center justify-center">
-                    <div className="w-44 h-56 border-4 border-dashed border-[#FF6FA5] rounded-full opacity-70" />
-                  </div>
+
+                  {/* Camera Notice Toast (Kamera Belakang Tidak Terdeteksi) */}
+                  {cameraNotice && (
+                    <div className="absolute top-3 left-3 right-14 z-30 bg-[#FFD400] text-[#181818] p-2 rounded-xl brutal-border-2 brutal-shadow-sm flex items-center justify-between gap-2 animate-in slide-in-from-top-2 duration-200">
+                      <div className="flex items-center gap-1.5 text-[11px] font-black text-left">
+                        <AlertCircle className="w-3.5 h-3.5 text-amber-900 shrink-0 stroke-[2.5]" />
+                        <span>{cameraNotice}</span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setCameraNotice("")}
+                        className="w-5 h-5 rounded-md bg-black/10 hover:bg-black/20 flex items-center justify-center text-[10px] font-black cursor-pointer shrink-0"
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  )}
 
                   {isCameraActive && (
                     <button
                       type="button"
                       onClick={toggleCamera}
-                      className="absolute top-3 right-3 z-10 bg-[#181818]/85 hover:bg-black text-white px-2.5 py-1.5 rounded-xl brutal-border-2 flex items-center gap-1.5 text-[11px] font-bold transition-all shadow-md active:scale-95 cursor-pointer"
-                      title="Putar Kamera Depan / Belakang"
+                      className="absolute top-3 right-3 z-20 w-10 h-10 rounded-xl bg-white hover:bg-[#FF6FA5] text-[#181818] brutal-border-2 brutal-shadow-sm flex items-center justify-center transition-all active:scale-90 cursor-pointer group shadow"
+                      title={cameraFacing === "user" ? "Ganti ke Kamera Belakang" : "Ganti ke Kamera Depan"}
+                      aria-label="Ganti Kamera"
                     >
-                      <FlipHorizontal className="w-3.5 h-3.5 text-[#FFD400]" />
-                      <span>{cameraFacing === "user" ? "Kamera Belakang" : "Kamera Depan"}</span>
+                      <FlipHorizontal className="w-4 h-4 stroke-[2.5] text-[#181818] group-hover:rotate-180 transition-transform duration-300" />
                     </button>
                   )}
 

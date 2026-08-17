@@ -1,57 +1,96 @@
-# 🚀 Panduan Deployment & Konfigurasi Production: Absensi QR XI PPLG 1
+# 🚀 Panduan Deployment & Operasional Production: Absensi QR XI PPLG 1
 
-Dokumen ini berisi panduan lengkap langkah demi langkah untuk melakukan deployment aplikasi **Sistem Absensi Kelas XI PPLG 1 SMKN 1 Ciomas** ke platform hosting production (Vercel) agar dapat diakses dari smartphone seluruh siswa dan guru.
-
----
-
-## 📌 1. Variabel Lingkungan (*Environment Variables*)
-
-Sebelum melakukan deploy, pastikan 3 variabel lingkungan berikut telah disalin dan dimasukkan ke dalam pengaturan **Environment Variables** di dashboard hosting (misal: Vercel / Netlify):
-
-| Variable Name | Keterangan | Aksesibilitas |
-| :--- | :--- | :---: |
-| `NEXT_PUBLIC_SUPABASE_URL` | URL Endpoint Supabase Project (`https://ohllvcwdrxewzfbjhhsr.supabase.co`) | Public Client & Server |
-| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase Anonymous Key (Read-Only) | Public Client & Server |
-| `SUPABASE_SERVICE_ROLE_KEY` | Supabase Service Role Secret Key (Bypass RLS) | **HANYA Server-Side** |
+Dokumen ini adalah panduan lengkap dan resmi untuk melakukan deployment aplikasi **Sistem Absensi Digital Kelas XI PPLG 1 SMKN 1 Ciomas** ke lingkungan **Production (Vercel / Cloud Hosting)** serta konfigurasi database Supabase.
 
 ---
 
-## 🌐 2. Langkah-Langkah Deploy ke Vercel (Rekomendasi)
+## 📋 1. Kredensial & Akun Akses Default
 
-1. **Push Repository ke GitHub / GitLab**:
-   - Pastikan seluruh kode project terbaru sudah di-commit dan di-push ke branch `main`.
-2. **Buka [Vercel Dashboard](https://vercel.com)**:
-   - Klik tombol **"Add New..."** $\rightarrow$ **"Project"**.
-   - Pilih repository `Absensi-kelas`.
-3. **Konfigurasi Project Settings**:
+Aplikasi mendukung 3 jenis peran pengguna:
+
+| Peran | Metode Login | Identifikasi / Sandi | Deskripsi Hak Akses |
+| :--- | :--- | :--- | :--- |
+| **Siswa (46 Siswa)** | Nama Lengkap & NISN | Terdaftar di Database (46 Siswa) | Scan QR kehadiran pagi & sholat dzuhur, ajukan izin/sakit, lihat riwayat |
+| **Sekretaris Kelas** | Kata Sandi Khusus | `Sekretaris#9Xk$2026!PPLG1` | Buka sesi QR Kelas Pagi, proyektor layar penuh, verifikasi presensi pagi, kelola izin |
+| **Guru / Wali Kelas** | Kata Sandi Khusus | `WaliKelas#Didin$2026!Ciomas` | Buka sesi QR Sholat Dzuhur, verifikasi sholat, rekapitulasi 46 siswa, ekspor Excel/CSV |
+
+---
+
+## ⚙️ 2. Variabel Lingkungan (*Environment Variables*)
+
+Tambahkan variabel lingkungan berikut pada pengaturan **Project Settings $\rightarrow$ Environment Variables** di platform hosting Anda (Vercel / Netlify / VPS):
+
+```env
+# Supabase Cloud Database Configuration
+NEXT_PUBLIC_SUPABASE_URL=https://<your-project-id>.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=<your-supabase-anon-key>
+SUPABASE_SERVICE_ROLE_KEY=<your-supabase-service-role-key>
+
+# School Location & Geofencing (SMKN 1 Ciomas)
+NEXT_PUBLIC_SCHOOL_LATITUDE=-6.5858633
+NEXT_PUBLIC_SCHOOL_LONGITUDE=106.7587903
+NEXT_PUBLIC_SCHOOL_RADIUS_METERS=150
+```
+
+> [!IMPORTANT]
+> - `NEXT_PUBLIC_SUPABASE_URL` dan `NEXT_PUBLIC_SUPABASE_ANON_KEY` dapat diakses oleh client browser.
+> - `SUPABASE_SERVICE_ROLE_KEY` bersifat **RAHASIA** dan hanya dieksekusi di server Next.js (Server Actions) untuk verifikasi data yang aman dari manipulasi.
+
+---
+
+## 🗄️ 3. Konfigurasi Database Supabase & Media Storage
+
+Pastikan konfigurasi di dashboard [Supabase](https://supabase.com) telah disiapkan:
+
+1. **Storage Bucket**:
+   - Masuk ke menu **Storage** $\rightarrow$ Buat Bucket baru bernama `absensi-media`.
+   - Set visibilitas bucket menjadi **Private** (Aplikasi menggunakan *Batch Signed URLs* berdurasi 1 jam untuk keamanan foto).
+2. **Realtime Replication**:
+   - Masuk ke **Database** $\rightarrow$ **Replication**.
+   - Aktifkan realtime pada tabel: `absensi_records`, `izin_records`, dan `qr_sesi`.
+3. **Database Schema & 46 Siswa**:
+   - Jalankan script SQL yang tersedia di folder `supabase/` untuk memastikan skema tabel `siswa`, `qr_sesi`, `absensi_records`, `izin_records`, dan `consumed_qr_tokens` terpasang rapi.
+
+---
+
+## 🌐 4. Langkah-Langkah Deploy ke Vercel (Rekomendasi)
+
+1. **Push ke GitHub / GitLab / Bitbucket**:
+   ```bash
+   git add .
+   git commit -m "feat: production ready absensi xi pplg 1"
+   git push origin main
+   ```
+2. **Import Project di Vercel**:
+   - Buka [vercel.com](https://vercel.com) dan login.
+   - Klik **"Add New..."** $\rightarrow$ **"Project"**.
+   - Pilih repository project ini.
+3. **Konfigurasi Project**:
    - **Framework Preset**: `Next.js`
-   - **Root Directory**: `./`
-   - **Build Command**: `npm run build`
-   - **Install Command**: `npm install`
-4. **Masukkan Environment Variables**:
-   - Buka bagian **"Environment Variables"**, lalu tambahkan:
-     - `NEXT_PUBLIC_SUPABASE_URL`
-     - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
-     - `SUPABASE_SERVICE_ROLE_KEY`
-5. **Deploy**:
-   - Klik tombol **"Deploy"**. Vercel akan meng-compile aplikasi dan memberikan URL HTTPS resmi (contoh: `https://absensi-xi-pplg1.vercel.app`).
+   - **Build Command**: `next build` (Otomatis)
+   - **Output Directory**: `.next` (Otomatis)
+   - **Node.js Version**: `20.x` atau `22.x`
+4. **Isi Environment Variables**:
+   - Masukkan seluruh nilai dari bagian 2 di atas.
+5. **Klik "Deploy"**:
+   - Vercel akan otomatis melakukan kompilasi Turbopack, type-checking, dan mengaktifkan URL HTTPS produksi (misal: `https://absensi-xi-pplg1.vercel.app`).
 
 ---
 
-## 📱 3. Fitur PWA (Install di HP Siswa & Guru)
+## 📱 5. PWA Installation (Smartphone Siswa & Guru)
 
-Aplikasi ini sudah dilengkapi dengan **Progressive Web App (PWA)**:
-1. Buka URL production melalui browser smartphone (**Google Chrome** di Android atau **Safari** di iOS).
-2. **Android (Chrome)**:
-   - Ketuk menu titik tiga (⋮) di kanan atas $\rightarrow$ Pilih **"Tambahkan ke Layar Utama" / "Install Aplikasi"**.
-3. **iOS (Safari)**:
-   - Ketuk ikon Share ($\uparrow$) di bilah bawah $\rightarrow$ Pilih **"Add to Home Screen"**.
-4. Aplikasi akan terpasang di layar utama HP dengan ikon logo neo-brutalis resmi dan berjalan dalam mode layar penuh (*standalone app*).
+Aplikasi telah dilengkapi service worker & manifest PWA:
+- **Android (Chrome)**: Ketuk ikon menu `⋮` $\rightarrow$ pilih **"Install Aplikasi"** atau **"Tambahkan ke Layar Utama"**.
+- **iOS (Safari)**: Ketuk ikon Share `↑` $\rightarrow$ pilih **"Add to Home Screen"**.
+- Aplikasi dapat dibuka layaknya aplikasi native Android/iOS tanpa bilah alamat browser (*Standalone App Mode*).
 
 ---
 
-## 🛡️ 4. Checklist Keamanan & Izin Kamera
+## 🔍 6. Checklist Verifikasi Akhir Pasca-Deploy (*Go-Live Checklist*)
 
-- [x] **HTTPS Mandatory**: Akses kamera live selfie di smartphone otomatis aktif karena hosting Vercel berjalan pada HTTPS aman.
-- [x] **Private Storage**: Seluruh foto selfie presensi dan surat keterangan dokter disimpan di bucket Supabase private dan hanya dapat diakses melalui link berdurasi 15 menit (*Signed URL*).
-- [x] **Anti-Replay QR**: Token QR sesi kehadiran dikonsumsi satu kali per siswa untuk mencegah kecurangan scan ulang.
+- [ ] Halaman `/` dan `/login` terbuka dengan cepat dan sertifikat SSL aktif (`https://`).
+- [ ] Login Siswa berhasil menggunakan Nama & NISN siswa kelas XI PPLG 1.
+- [ ] Login Sekretaris berhasil dengan sandi `Sekretaris#9Xk$2026!PPLG1`.
+- [ ] Login Guru / Wali Kelas berhasil dengan sandi `WaliKelas#Didin$2026!Ciomas`.
+- [ ] Izin Kamera dan Geofencing GPS dapat diakses saat melakukan presensi di smartphone.
+- [ ] Ekspor Excel (`.xlsx`) dan CSV pada halaman Rekapitulasi mengunduh data 46 siswa dengan format rapi.

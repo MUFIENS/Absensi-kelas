@@ -258,3 +258,92 @@ export function ConfirmDialog({
     </Dialog>
   );
 }
+
+// ----------------------------------------------------
+// Alert / Info Dialog (Modern replacement for alert())
+// ----------------------------------------------------
+export interface AlertDialogProps {
+  isOpen: boolean;
+  onClose: () => void;
+  title: string;
+  message: string;
+  buttonText?: string;
+  type?: "info" | "warning" | "danger" | "success";
+}
+
+export function AlertDialog({
+  isOpen,
+  onClose,
+  title,
+  message,
+  buttonText = "Mengerti",
+  type = "info",
+}: AlertDialogProps) {
+  const iconTypes = {
+    info: {
+      icon: <Info className="w-8 h-8 text-white stroke-[2.5]" />,
+      bg: "bg-[#3355FF]",
+      buttonVariant: "primary" as const,
+    },
+    warning: {
+      icon: <AlertTriangle className="w-8 h-8 text-[#181818] stroke-[2.5]" />,
+      bg: "bg-[#FFD400]",
+      buttonVariant: "yellow" as const,
+    },
+    danger: {
+      icon: <AlertCircle className="w-8 h-8 text-white stroke-[2.5]" />,
+      bg: "bg-red-500",
+      buttonVariant: "danger" as const,
+    },
+    success: {
+      icon: <CheckCircle className="w-8 h-8 text-white stroke-[2.5]" />,
+      bg: "bg-green-600",
+      buttonVariant: "green" as const,
+    },
+  };
+
+  const selectedIcon = iconTypes[type] || iconTypes.info;
+
+  return (
+    <Dialog
+      isOpen={isOpen}
+      onClose={onClose}
+      maxWidth="sm"
+      showCloseButton={false}
+      className="p-1"
+    >
+      <div className="text-center space-y-4 pt-2">
+        <div
+          className={cn(
+            "w-16 h-16 rounded-2xl mx-auto flex items-center justify-center brutal-border-2 brutal-shadow-sm rotate-2 animate-in zoom-in-50 duration-200",
+            selectedIcon.bg
+          )}
+        >
+          {selectedIcon.icon}
+        </div>
+
+        <div className="space-y-1.5 px-2">
+          <h3 className="text-xl sm:text-2xl font-black font-fredoka text-[#181818] leading-tight">
+            {title}
+          </h3>
+          <p className="text-xs sm:text-sm font-bold text-neutral-700 leading-relaxed whitespace-pre-line">
+            {message}
+          </p>
+        </div>
+
+        <div className="pt-2 border-t-2 border-neutral-200">
+          <Button
+            type="button"
+            variant={selectedIcon.buttonVariant}
+            size="md"
+            onClick={onClose}
+            className="w-full justify-center text-xs font-black shadow-md"
+          >
+            {buttonText}
+          </Button>
+        </div>
+      </div>
+    </Dialog>
+  );
+}
+

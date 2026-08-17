@@ -28,6 +28,7 @@ export interface DropdownProps<T = string | number> {
   variant?: "white" | "yellow" | "blue" | "pink" | "neutral";
   size?: "sm" | "md" | "lg";
   direction?: "down" | "up";
+  align?: "left" | "right";
   name?: string;
   id?: string;
   required?: boolean;
@@ -49,6 +50,7 @@ export function Dropdown<T = string | number>({
   variant = "white",
   size = "md",
   direction = "down",
+  align = "left",
   id,
   required = false,
 }: DropdownProps<T>) {
@@ -216,8 +218,9 @@ export function Dropdown<T = string | number>({
       {isOpen && (
         <div
           className={cn(
-            "absolute z-50 w-full min-w-[180px] bg-white rounded-2xl brutal-border-2 brutal-shadow-lg overflow-hidden",
-            "animate-in fade-in zoom-in-95 duration-150 origin-top",
+            "absolute z-50 w-full min-w-full sm:min-w-[150px] bg-white rounded-2xl brutal-border-2 brutal-shadow-lg overflow-hidden",
+            "animate-in fade-in zoom-in-95 duration-150",
+            align === "right" ? "right-0 origin-top-right" : "left-0 origin-top-left",
             direction === "down" ? "top-full mt-1.5" : "bottom-full mb-1.5 origin-bottom",
             menuClassName
           )}

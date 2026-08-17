@@ -312,13 +312,24 @@ export function DatePicker({
 
       {/* Popover Custom Calendar */}
       {isOpen && (
-        <div
-          data-lenis-prevent="true"
-          className={cn(
-            "absolute z-50 mt-2 bg-white rounded-3xl brutal-border-thick shadow-[6px_6px_0px_#181818] p-4 animate-in fade-in zoom-in-95 duration-150 w-[330px] sm:w-[350px]",
-            align === "right" ? "right-0" : "left-0"
-          )}
-        >
+        <>
+          {/* Mobile backdrop */}
+          <div
+            className="fixed inset-0 bg-[#181818]/50 backdrop-blur-xs z-40 sm:hidden animate-in fade-in duration-150"
+            onClick={() => {
+              setIsOpen(false);
+              setPickerMode("days");
+            }}
+          />
+
+          <div
+            data-lenis-prevent="true"
+            className={cn(
+              "z-50 bg-white rounded-3xl brutal-border-thick shadow-[6px_6px_0px_#181818] p-3.5 sm:p-4 animate-in fade-in zoom-in-95 duration-150 w-[calc(100vw-32px)] max-w-[340px] sm:w-[340px]",
+              "fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 sm:top-auto sm:left-auto sm:translate-x-0 sm:translate-y-0 sm:absolute sm:mt-2",
+              align === "right" ? "sm:right-0 sm:left-auto" : "sm:left-0 sm:right-auto"
+            )}
+          >
           {/* Quick Presets Bar */}
           <div className="mb-3 pb-2.5 border-b-2 border-neutral-100 flex items-center justify-between gap-1 text-[11px]">
             <span className="font-black text-neutral-400 text-[10px] uppercase tracking-wider">
@@ -563,7 +574,8 @@ export function DatePicker({
             </div>
           </div>
         </div>
-      )}
+      </>
+    )}
     </div>
   );
 }

@@ -110,11 +110,16 @@ function LoginForm() {
     try {
       const res = await authenticateAdminAction(cleanUser, sekretarisPass.trim());
       if (res.success && res.session) {
+        if (res.session.role !== "admin") {
+          setSekretarisError("Username atau password salah.");
+          setIsLoading(false);
+          return;
+        }
         loginRateLimiter.reset("client", cleanUser);
         setStoredAuth(res.session);
         router.push(redirectParam || "/dashboard/sekretaris");
       } else {
-        setSekretarisError(res.message || "Gagal login sekretaris.");
+        setSekretarisError("Username atau password salah.");
       }
     } catch {
       setSekretarisError("Terjadi kesalahan jaringan / server saat menghubungkan database.");
@@ -142,11 +147,16 @@ function LoginForm() {
     try {
       const res = await authenticateAdminAction(cleanUser, guruPass.trim());
       if (res.success && res.session) {
+        if (res.session.role !== "wali_kelas") {
+          setGuruError("Username atau password salah.");
+          setIsLoading(false);
+          return;
+        }
         loginRateLimiter.reset("client", cleanUser);
         setStoredAuth(res.session);
         router.push(redirectParam || "/dashboard/guru");
       } else {
-        setGuruError(res.message || "Gagal login guru/wali kelas.");
+        setGuruError("Username atau password salah.");
       }
     } catch {
       setGuruError("Terjadi kesalahan jaringan / server saat menghubungkan database.");

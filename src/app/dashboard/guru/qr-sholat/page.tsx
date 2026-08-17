@@ -26,11 +26,11 @@ import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import { Modal } from "@/components/ui/Modal";
-import { Dialog, ConfirmDialog } from "@/components/ui/Dialog";
+import { Dialog, ConfirmDialog, AlertDialog } from "@/components/ui/Dialog";
 import { getStoredAuth } from "@/lib/store";
 import { supabase } from "@/lib/supabaseClient";
 import { createQRSesiAction, deactivateQRSesiAction } from "@/app/actions/absensiActions";
-import { getJakartaDateString } from "@/lib/dateUtils";
+import { getJakartaDateString, formatWIBTime } from "@/lib/dateUtils";
 import { QRSesi, AbsensiRecord, AuthSession } from "@/lib/types";
 import { APP_CONFIG } from "@/lib/env";
 
@@ -50,6 +50,12 @@ export default function GuruQRSholatPage() {
   const [isCreateModalOpen, setIsCreateModalOpen] = useState<boolean>(false);
   const [isCloseConfirmOpen, setIsCloseConfirmOpen] = useState<boolean>(false);
   const [selectedDuration, setSelectedDuration] = useState<number>(60);
+  const [alertState, setAlertState] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: string;
+    type: "info" | "warning" | "danger" | "success";
+  }>({ isOpen: false, title: "", message: "", type: "info" });
 
   const calculateTimeRemaining = (session: QRSesi | null) => {
     if (!session || !session.isActive) {
@@ -231,10 +237,20 @@ export default function GuruQRSholatPage() {
         setTimeLeftStr(calc.text);
         setIsCreateModalOpen(false);
       } else {
-        alert(res.message || "Gagal membuat sesi QR sholat.");
+        setAlertState({
+          isOpen: true,
+          title: "Gagal Membuat Sesi",
+          message: res.message || "Gagal membuat sesi QR sholat.",
+          type: "danger",
+        });
       }
     } catch {
-      alert("Terjadi kendala koneksi server saat membuat sesi QR sholat.");
+      setAlertState({
+        isOpen: true,
+        title: "Kendala Koneksi",
+        message: "Terjadi kendala koneksi server saat membuat sesi QR sholat.",
+        type: "danger",
+      });
     } finally {
       setIsLoading(false);
     }
@@ -277,7 +293,7 @@ export default function GuruQRSholatPage() {
       ctx.fillText("ABSENSI SHOLAT XI PPLG 1", 300, 52);
 
       ctx.font = "bold 16px sans-serif";
-      ctx.fillText("MUSHOLA / MASJID SEKOLAH", 300, 80);
+      ctx.fillText("MUSHOLA SMKN 1 CIOMAS", 300, 80);
 
       // Draw white card for QR
       ctx.fillStyle = "#FFFFFF";
@@ -390,7 +406,7 @@ export default function GuruQRSholatPage() {
     setTimeout(() => setCopiedLink(false), 2000);
   };
 
-  const today = new Date().toLocaleDateString("en-CA");
+  const today = getJakartaDateString();
   const todaySholatRecords = records.filter(
     (r) => r.jenis === "sholat_dzuhur" && r.tanggal === today
   );
@@ -410,26 +426,21 @@ export default function GuruQRSholatPage() {
           <h1 className="text-2xl sm:text-3xl font-black font-fredoka text-[#181818]">
             Layar Proyektor QR Sholat Dzuhur
           </h1>
-          <p className="text-xs sm:text-sm font-bold text-neutral-600">
+          <p className="text-xs sm:text-sm font-bold text-neutral-600 mt-1">
             Tampilkan QR Code di proyektor mushola untuk presensi sholat berjamaah siswa XI PPLG 1.
           </p>
         </div>
 
-        <div className="flex items-center gap-2 self-start sm:self-center">
+        <div className="self-start sm:self-center shrink-0">
           <Button
             variant="green"
             size="md"
             onClick={() => setIsCreateModalOpen(true)}
-            className="gap-2 text-xs sm:text-sm font-black"
+            className="gap-2 text-xs sm:text-sm font-black whitespace-nowrap"
           >
-            <PlusCircle className="w-4 h-4" />
-            <span>{activeSession ? "Ganti / Buka Sesi Baru" : "Buka Sesi Sholat Baru"}</span>
+            <PlusCircle className="w-4 h-4 stroke-[2.5]" />
+            <span>Buka Sesi Sholat Baru</span>
           </Button>
-
-          <Badge variant="green" size="md" className="gap-1.5 hidden sm:flex">
-            <AppIcon name="mosque" className="w-4 h-4" />
-            <span>MUSHOLA SEKOLAH</span>
-          </Badge>
         </div>
       </div>
 
@@ -449,7 +460,7 @@ export default function GuruQRSholatPage() {
           <div className="flex flex-wrap items-center justify-center gap-2">
             <Badge variant="green" size="md" className="gap-1.5">
               <AppIcon name="mosque" className="w-4 h-4" />
-              <span>MUSHOLA XI PPLG 1</span>
+              <span>MUSHOLA SMKN 1 CIOMAS</span>
             </Badge>
 
             {!isLoaded ? (
@@ -469,20 +480,20 @@ export default function GuruQRSholatPage() {
             ) : (
               <Badge variant="yellow" size="md" className="gap-1.5 animate-pulse">
                 <Clock className="w-3.5 h-3.5" />
-                <span>SISA WAKTU: {timeLeftStr}</span>
+                <span suppressHydrationWarning>SISA WAKTU: {timeLeftStr}</span>
               </Badge>
             )}
           </div>
 
           {/* Sesi Belum Dimulai State */}
           {!activeSession ? (
-            <div className="p-8 sm:p-10 bg-[#6FCB6F] rounded-3xl brutal-border-thick brutal-shadow-lg max-w-md w-full space-y-4 text-center">
-              <div className="w-16 h-16 rounded-2xl bg-white brutal-border-2 mx-auto flex items-center justify-center rotate-2">
+            <div className="p-8 sm:p-10 bg-[#FFD400] rounded-3xl brutal-border-thick brutal-shadow-lg max-w-md w-full space-y-4 text-center">
+              <div className="w-16 h-16 rounded-2xl bg-[#6FCB6F] text-[#181818] brutal-border-2 mx-auto flex items-center justify-center -rotate-2">
                 <AppIcon name="mosque" className="w-10 h-10 text-[#181818]" />
               </div>
               <div>
                 <h3 className="text-xl font-black font-fredoka text-[#181818]">
-                  Sesi QR Sholat Belum Dimulai
+                  Sesi QR Sholat Belum Dibuka
                 </h3>
                 <p className="text-xs sm:text-sm font-bold text-[#181818]/80 mt-1">
                   Pilih durasi aktif lalu klik tombol di bawah untuk menampilkan QR Code pada proyektor mushola.
@@ -491,87 +502,85 @@ export default function GuruQRSholatPage() {
 
               <div className="space-y-2 pt-2">
                 <p className="text-[11px] font-black uppercase text-[#181818]/70">
-                  Pilih Durasi Waktu Sholat:
+                  Pilih Durasi Sesi:
                 </p>
-                <div className="grid grid-cols-3 gap-1.5">
-                  {[15, 30, 45, 60, 90, 120].map((d) => (
+                <div className="grid grid-cols-3 gap-2">
+                  {[15, 30, 45, 60, 90, 120].map((dur) => (
                     <button
-                      key={d}
+                      key={dur}
                       type="button"
-                      onClick={() => setSelectedDuration(d)}
-                      className={`py-2 rounded-xl text-xs font-black transition-all ${
-                        selectedDuration === d
+                      onClick={() => setSelectedDuration(dur)}
+                      className={`py-2 rounded-xl font-black text-xs transition-all ${
+                        selectedDuration === dur
                           ? "bg-[#181818] text-[#6FCB6F] brutal-border-2"
-                          : "bg-white text-[#181818] border-2 border-neutral-300 hover:bg-neutral-100"
+                          : "bg-white text-[#181818] hover:bg-white/80 border-2 border-[#181818]"
                       }`}
                     >
-                      {d} Menit
+                      {dur}m
                     </button>
                   ))}
                 </div>
               </div>
 
               <Button
-                variant="primary"
+                variant="green"
                 size="lg"
                 onClick={() => handleCreateNewSession(selectedDuration)}
-                className="w-full justify-center gap-2 text-sm sm:text-base mt-2 font-black"
+                className="w-full justify-center gap-2 text-sm font-black shadow-lg"
               >
-                <PlayCircle className="w-5 h-5" />
-                <span>Mulai &amp; Tampilkan QR Sholat ({selectedDuration} Menit)</span>
+                <PlayCircle className="w-5 h-5 stroke-[2.5]" />
+                <span>Buka Sesi Sholat ({selectedDuration} Menit)</span>
               </Button>
             </div>
           ) : (
-            /* QR Box Container with Expired Overlay */
-            <div id="qr-sholat-box" className="relative p-5 sm:p-6 bg-[#6FCB6F] rounded-3xl brutal-border-thick brutal-shadow-lg max-w-xs sm:max-w-sm w-full">
-              <div className={`bg-white p-3.5 sm:p-4 rounded-2xl brutal-border-2 transition-all ${
-                isExpired ? "opacity-25 blur-xs pointer-events-none" : ""
-              }`}>
-                <QRCodeSVG
-                  value={
-                    typeof window !== "undefined"
-                      ? `${window.location.origin}/dashboard/siswa/absen?token=${activeSession.token}`
-                      : activeSession.token
-                  }
-                  size={200}
-                  level="H"
-                  includeMargin={true}
-                  className="mx-auto max-w-full h-auto"
-                />
+            <div className="flex flex-col items-center space-y-4 max-w-md w-full">
+              {/* QR Container Frame */}
+              <div className="p-4 sm:p-6 bg-white rounded-3xl brutal-border-thick brutal-shadow-lg flex items-center justify-center w-full max-w-[340px] sm:max-w-[380px] aspect-square relative">
+                {isExpired ? (
+                  <div className="absolute inset-0 bg-neutral-900/90 rounded-2xl flex flex-col items-center justify-center text-white p-4 space-y-2 text-center backdrop-blur-xs z-10">
+                    <Lock className="w-10 h-10 text-red-400" />
+                    <p className="font-black text-sm text-red-300">Sesi QR Kedaluwarsa</p>
+                    <p className="text-xs text-neutral-300">
+                      Buka sesi baru untuk melanjutkan presensi sholat.
+                    </p>
+                  </div>
+                ) : null}
+
+                <div id="qr-code-to-share" className="w-full h-full flex items-center justify-center p-2">
+                  <QRCodeSVG
+                    value={activeSession.token}
+                    size={280}
+                    level="H"
+                    includeMargin={false}
+                    className="w-full h-full max-w-[280px] max-h-[280px]"
+                  />
+                </div>
               </div>
 
               {/* Token Display */}
-              <div className="mt-3 bg-[#181818] text-[#6FCB6F] px-4 py-2 rounded-xl font-mono font-black text-sm tracking-widest uppercase flex items-center justify-center gap-2">
-                <span>{activeSession.token}</span>
+              <div className="bg-[#F4F4F0] px-4 py-2 rounded-2xl brutal-border-2 flex items-center justify-between gap-3 w-full max-w-[340px] sm:max-w-[380px]">
+                <div className="flex items-center gap-2 min-w-0">
+                  <span className="text-[10px] font-black uppercase text-neutral-500">Token:</span>
+                  <span className="font-mono font-black text-sm text-[#181818] tracking-wider truncate">
+                    {activeSession.token}
+                  </span>
+                </div>
                 <button
-                  type="button"
                   onClick={handleCopyToken}
+                  className="p-1.5 hover:bg-neutral-200 rounded-lg text-neutral-700 transition-colors shrink-0 cursor-pointer"
                   title="Salin Token"
-                  className="text-white hover:text-[#6FCB6F]"
                 >
-                  {copiedLink ? <Check className="w-4 h-4 text-green-400" /> : <Copy className="w-4 h-4" />}
+                  {copiedLink ? <Check className="w-4 h-4 text-green-600" /> : <Copy className="w-4 h-4" />}
                 </button>
               </div>
 
-              {/* Expired Overlay */}
               {isExpired && (
-                <div className="absolute inset-0 bg-[#181818]/90 rounded-3xl flex flex-col items-center justify-center p-6 text-white text-center space-y-3 z-10 animate-in fade-in">
-                  <div className="w-14 h-14 rounded-2xl bg-red-600 text-white flex items-center justify-center brutal-border-2">
-                    <Lock className="w-8 h-8" />
-                  </div>
-                  <div>
-                    <h4 className="text-xl font-black font-fredoka text-[#FF6FA5]">
-                      SESI KEDALUWARSA
-                    </h4>
-                    <p className="text-xs font-bold text-neutral-300">
-                      QR Code sholat dzuhur ini telah berakhir.
-                    </p>
-                  </div>
+                <div className="w-full max-w-[340px] sm:max-w-[380px]">
                   <Button
                     variant="green"
-                    size="sm"
+                    size="md"
                     onClick={() => setIsCreateModalOpen(true)}
-                    className="gap-1.5 text-xs text-[#181818]"
+                    className="w-full justify-center gap-2 text-xs sm:text-sm font-black"
                   >
                     <PlusCircle className="w-4 h-4" />
                     <span>Buka Sesi Sholat Baru</span>
@@ -584,8 +593,8 @@ export default function GuruQRSholatPage() {
           {/* Action Buttons: Share PNG, Download PNG, Copy Link, Close */}
           {activeSession && (
             <div className="space-y-3 w-full pt-1">
-              <p className="text-xs font-bold text-neutral-600 max-w-md mx-auto">
-                Berakhir pukul <strong>{new Date(activeSession.waktuBerakhir).toLocaleTimeString("id-ID")} WIB</strong> ({APP_CONFIG.sholatTimeRange.label}). Siswa wajib selfie di area mushola.
+              <p className="text-xs font-bold text-neutral-600 max-w-md mx-auto" suppressHydrationWarning>
+                Berakhir pukul <strong suppressHydrationWarning>{formatWIBTime(activeSession.waktuBerakhir)}</strong> ({APP_CONFIG.sholatTimeRange.label}). Siswa wajib selfie di area mushola.
               </p>
 
               <div className="flex flex-col gap-2 max-w-md mx-auto w-full">
@@ -613,71 +622,50 @@ export default function GuruQRSholatPage() {
                   <Button
                     variant="white"
                     size="sm"
-                    onClick={handleCopyLink}
+                    onClick={handleCopyToken}
                     className="justify-center gap-1.5 text-xs font-bold"
                   >
-                    <Copy className="w-3.5 h-3.5" />
-                    <span>Salin Link</span>
+                    {copiedLink ? <Check className="w-3.5 h-3.5 text-green-600" /> : <Copy className="w-3.5 h-3.5" />}
+                    <span>{copiedLink ? "Tersalin!" : "Salin Token"}</span>
                   </Button>
 
-                  {!isExpired ? (
-                    <Button
-                      variant="pink"
-                      size="sm"
-                      onClick={() => setIsCloseConfirmOpen(true)}
-                      className="justify-center gap-1.5 text-xs font-black col-span-2 sm:col-span-1"
-                    >
-                      <PowerOff className="w-3.5 h-3.5" />
-                      <span>Tutup Sesi</span>
-                    </Button>
-                  ) : (
-                    <Button
-                      variant="yellow"
-                      size="sm"
-                      onClick={() => setIsCreateModalOpen(true)}
-                      className="justify-center gap-1.5 text-xs font-black col-span-2 sm:col-span-1 text-[#181818]"
-                    >
-                      <RefreshCw className="w-3.5 h-3.5" />
-                      <span>Buka Baru</span>
-                    </Button>
-                  )}
+                  <Button
+                    variant="pink"
+                    size="sm"
+                    onClick={() => setIsCloseConfirmOpen(true)}
+                    className="justify-center gap-1.5 text-xs font-bold col-span-2 sm:col-span-1"
+                  >
+                    <PowerOff className="w-3.5 h-3.5" />
+                    <span>Tutup Sesi</span>
+                  </Button>
                 </div>
               </div>
             </div>
           )}
         </div>
 
-        {/* Right (5 Cols): Live Sholat Feed */}
-        <div className="lg:col-span-5 bg-white p-5 sm:p-8 rounded-[36px] brutal-border-thick brutal-shadow-xl flex flex-col justify-between space-y-4">
-          <div className="pb-3 border-b-3 border-[#181818] flex items-center justify-between">
+        {/* Right (5 Cols): Real-Time Live Attendees Feed */}
+        <div className="lg:col-span-5 bg-white p-5 sm:p-6 rounded-[28px] sm:rounded-[36px] brutal-border-thick brutal-shadow-xl space-y-4">
+          <div className="flex items-center justify-between pb-3 border-b-2 border-neutral-200">
             <div className="flex items-center gap-2">
-              <AppIcon name="mosque" className="w-6 h-6 text-[#181818]" />
-              <h3 className="text-lg font-black font-fredoka text-[#181818]">
-                Siswa di Mushola
-              </h3>
+              <div className="w-9 h-9 rounded-xl bg-[#FFD400] text-[#181818] flex items-center justify-center brutal-border-2 font-black">
+                <Users className="w-5 h-5 stroke-[2.5]" />
+              </div>
+              <div>
+                <h3 className="font-black font-fredoka text-base text-[#181818]">Presensi Terkini</h3>
+                <p className="text-[11px] font-bold text-neutral-500">Live feed realtime siswa sholat</p>
+              </div>
             </div>
-            <span className="text-xs font-black bg-[#6FCB6F] px-2.5 py-1 rounded-xl brutal-border-2 text-[#181818]">
+
+            <Badge variant="green" size="md">
               {todaySholatRecords.length} / 46 Siswa
-            </span>
+            </Badge>
           </div>
 
-          <div className="space-y-1.5">
-            <div className="flex justify-between text-xs font-black text-neutral-700">
-              <span>Progress Sholat Berjamaah</span>
-              <span>{Math.round((todaySholatRecords.length / 46) * 100)}%</span>
-            </div>
-            <div className="w-full h-3.5 bg-neutral-200 rounded-full brutal-border-2 overflow-hidden">
-              <div
-                className="h-full bg-[#6FCB6F] transition-all duration-500"
-                style={{ width: `${Math.min(100, Math.round((todaySholatRecords.length / 46) * 100))}%` }}
-              />
-            </div>
-          </div>
-
-          <div className="flex-1 overflow-y-auto max-h-[300px] space-y-2 pr-1">
+          <div className="overflow-y-auto max-h-[380px] space-y-2 pr-1">
             {todaySholatRecords.length === 0 ? (
-              <div className="p-8 text-center bg-neutral-50 rounded-2xl border-2 border-dashed border-neutral-300 space-y-1">
-                <p className="text-xs font-bold text-neutral-500">Belum ada siswa yang scan sesi sholat dzuhur.</p>
+              <div className="py-12 text-center text-neutral-400 font-bold text-sm">
+                Belum ada siswa yang melakukan presensi sholat hari ini.
               </div>
             ) : (
               todaySholatRecords.map((rec) => (
@@ -691,8 +679,8 @@ export default function GuruQRSholatPage() {
                     </div>
                     <div>
                       <p className="text-xs font-black text-[#181818]">{rec.siswa.nama}</p>
-                      <p className="text-[10px] font-bold text-neutral-500 font-mono">
-                        {new Date(rec.waktuAbsen).toLocaleTimeString("id-ID")} WIB
+                      <p className="text-[10px] font-bold text-neutral-500 font-mono" suppressHydrationWarning>
+                        {formatWIBTime(rec.waktuAbsen)}
                       </p>
                     </div>
                   </div>
@@ -705,16 +693,6 @@ export default function GuruQRSholatPage() {
                 </div>
               ))
             )}
-          </div>
-
-          <div className="pt-2 border-t-2 border-neutral-200">
-            <Link
-              href="/dashboard/guru/verifikasi"
-              className="w-full py-2.5 bg-[#FFD400] text-[#181818] font-black text-xs rounded-2xl brutal-border-2 brutal-shadow-sm flex items-center justify-center gap-2 hover:bg-yellow-400"
-            >
-              <ShieldCheck className="w-4 h-4 stroke-[2.5]" />
-              <span>Verifikasi Selfie Sholat ({pendingCount} Pending)</span>
-            </Link>
           </div>
         </div>
       </div>
@@ -769,10 +747,10 @@ export default function GuruQRSholatPage() {
 
           <div className="p-3 bg-green-50 rounded-2xl border-2 border-green-200 text-xs font-bold text-green-900 flex items-center gap-2">
             <Clock className="w-4 h-4 text-green-600 shrink-0" />
-            <span>
+            <span suppressHydrationWarning>
               Sesi sholat akan berakhir pada:{" "}
-              <strong>
-                {new Date(Date.now() + selectedDuration * 60 * 1000).toLocaleTimeString("id-ID")} WIB
+              <strong suppressHydrationWarning>
+                {formatWIBTime(Date.now() + selectedDuration * 60 * 1000)}
               </strong>
             </span>
           </div>
@@ -797,6 +775,15 @@ export default function GuruQRSholatPage() {
           </div>
         </div>
       </Modal>
+
+      {/* Modern Alert Dialog */}
+      <AlertDialog
+        isOpen={alertState.isOpen}
+        onClose={() => setAlertState((prev) => ({ ...prev, isOpen: false }))}
+        title={alertState.title}
+        message={alertState.message}
+        type={alertState.type}
+      />
     </div>
   );
 }

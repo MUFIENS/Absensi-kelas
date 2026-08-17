@@ -19,12 +19,14 @@ import { AuthSession } from "@/lib/types";
 
 export function Navbar() {
   const pathname = usePathname();
-  const [auth, setAuth] = useState<AuthSession | null>(() => getStoredAuth());
+  const [auth, setAuth] = useState<AuthSession | null>(null);
+  const [mounted, setMounted] = useState<boolean>(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   useEffect(() => {
+    setMounted(true);
     const current = getStoredAuth();
-    setAuth((prev) => (prev?.token !== current?.token ? current : prev));
+    setAuth(current);
   }, [pathname]);
 
   const publicLinks = [
@@ -73,7 +75,7 @@ export function Navbar() {
 
           {/* Right Action: Go To Dashboard / Login */}
           <div className="hidden sm:flex items-center gap-3">
-            {auth ? (
+            {mounted && auth ? (
               <Link href="/dashboard">
                 <Button variant="primary" size="md" className="gap-2 text-xs sm:text-sm">
                   <LayoutDashboard className="w-4 h-4 stroke-[2.5]" />

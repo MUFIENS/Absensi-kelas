@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Dropdown } from "@/components/ui/Dropdown";
 import { Badge } from "@/components/ui/Badge";
-import { Dialog } from "@/components/ui/Dialog";
+import { Dialog, AlertDialog } from "@/components/ui/Dialog";
 import { getStoredAuth } from "@/lib/store";
 import { fetchRekapKelasAction } from "@/app/actions/absensiActions";
 import { 
@@ -17,6 +17,7 @@ import {
   NAMA_BULAN_INDONESIA 
 } from "@/lib/calendarApi";
 import { AuthSession, RekapItemSiswa } from "@/lib/types";
+import type ExcelJS from "exceljs";
 
 const bulanOptions = [
   { value: "1", label: "Januari" },
@@ -34,9 +35,9 @@ const bulanOptions = [
 ];
 
 const tahunOptions = [
-  { value: "2026", label: "2026/2027" },
-  { value: "2025", label: "2025/2026" },
-  { value: "2027", label: "2027/2028" },
+  { value: "2026", label: "2026" },
+  { value: "2027", label: "2027" },
+  { value: "2028", label: "2028" },
 ];
 
 import { supabase } from "@/lib/supabaseClient";
@@ -53,6 +54,12 @@ export default function GuruRekapPage() {
   const [showCalendarInfo, setShowCalendarInfo] = useState<boolean>(false);
   const [customDaysMap, setCustomDaysMap] = useState<Record<string, number>>({});
   const [customInputDays, setCustomInputDays] = useState<string>("");
+  const [alertState, setAlertState] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: string;
+    type: "info" | "warning" | "danger" | "success";
+  }>({ isOpen: false, title: "", message: "", type: "info" });
   const [hariEfektifInfo, setHariEfektifInfo] = useState<HariEfektifResult>(() =>
     getHariEfektifBulan(now.getMonth() + 1, now.getFullYear())
   );
@@ -132,96 +139,164 @@ export default function GuruRekapPage() {
     );
   });
 
-  const exportToExcel = () => {
+  const exportToExcel = async () => {
+    if (rekapData.length === 0) {
+      setAlertState({
+        isOpen: true,
+        title: "Memuat Data",
+        message: "Data rekapitulasi sedang dimuat, silakan tunggu sebentar sebelum mengekspor.",
+        type: "info",
+      });
+      return;
+    }
+
     const namaBulan = NAMA_BULAN_INDONESIA[parseInt(selectedBulan)] || `Bulan ${selectedBulan}`;
     const totalEfektif = currentEffectiveDays;
+    const dataToExport = filteredData.length > 0 ? filteredData : rekapData;
 
-    const tableRows = filteredData.map((item, idx) => `
-      <tr style="background-color: ${idx % 2 === 0 ? '#FFFFFF' : '#F8F9FA'}; height: 26px;">
-        <td style="text-align: center; border: 1px solid #999;">${item.siswa.nomorAbsen}</td>
-        <td style="mso-number-format:'\\@'; border: 1px solid #999;">${item.siswa.nis}</td>
-        <td style="font-weight: bold; border: 1px solid #999;">${item.siswa.nama}</td>
-        <td style="text-align: center; border: 1px solid #999;">${item.siswa.gender}</td>
-        <td style="text-align: center; color: #15803d; font-weight: bold; border: 1px solid #999;">${item.kehadiranKelas.hadir}</td>
-        <td style="text-align: center; color: #b45309; border: 1px solid #999;">${item.kehadiranKelas.sakit}</td>
-        <td style="text-align: center; color: #1d4ed8; border: 1px solid #999;">${item.kehadiranKelas.izin}</td>
-        <td style="text-align: center; color: #b91c1c; border: 1px solid #999;">${item.kehadiranKelas.alpa}</td>
-        <td style="text-align: center; font-weight: bold; border: 1px solid #999;">${item.kehadiranKelas.persentase}%</td>
-        <td style="text-align: center; color: #15803d; font-weight: bold; border: 1px solid #999;">${item.sholatDzuhur.hadir}</td>
-        <td style="text-align: center; color: #b91c1c; border: 1px solid #999;">${item.sholatDzuhur.alpa}</td>
-        <td style="text-align: center; font-weight: bold; border: 1px solid #999;">${item.sholatDzuhur.persentase}%</td>
-      </tr>
-    `).join("");
+    const totalKelasHadir = dataToExport.reduce((acc, curr) => acc + curr.kehadiranKelas.hadir, 0);
+    const totalKelasSakit = dataToExport.reduce((acc, curr) => acc + curr.kehadiranKelas.sakit, 0);
+    const totalKelasIzin = dataToExport.reduce((acc, curr) => acc + curr.kehadiranKelas.izin, 0);
+    const totalKelasAlpa = dataToExport.reduce((acc, curr) => acc + curr.kehadiranKelas.alpa, 0);
+    const avgKelasPersen = Math.round(dataToExport.reduce((acc, curr) => acc + curr.kehadiranKelas.persentase, 0) / (dataToExport.length || 1));
 
-    const excelHtml = `
-      <html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">
-      <head>
-        <!--[if gte mso 9]>
-        <xml>
-          <x:ExcelWorkbook>
-            <x:ExcelWorksheets>
-              <x:ExcelWorksheet>
-                <x:Name>Rekap Presensi ${namaBulan}</x:Name>
-                <x:WorksheetOptions>
-                  <x:DisplayGridlines/>
-                </x:WorksheetOptions>
-              </x:ExcelWorksheet>
-            </x:ExcelWorksheets>
-          </x:ExcelWorkbook>
-        </xml>
-        <![endif]-->
-        <meta http-equiv="content-type" content="text/plain; charset=UTF-8"/>
-        <style>
-          th, td { font-family: Calibri, Arial, sans-serif; font-size: 11pt; }
-        </style>
-      </head>
-      <body>
-        <table border="0" cellpadding="4" cellspacing="0" style="border-collapse:collapse; width:100%;">
-          <tr>
-            <td colspan="12" style="font-size: 16pt; font-weight: bold; text-align: center; height: 35px;">
-              LAPORAN REKAPITULASI PRESENSI & SHOLAT DZUHUR SISWA
-            </td>
-          </tr>
-          <tr>
-            <td colspan="12" style="font-size: 12pt; text-align: center; height: 24px;">
-              SMK NEGERI 1 CIOMAS &bull; KELAS XI PPLG 1 &bull; Periode: ${namaBulan} ${selectedTahun} (${totalEfektif} Hari Efektif Sekolah)
-            </td>
-          </tr>
-          <tr><td colspan="12" style="height: 10px;"></td></tr>
-          <thead>
-            <tr style="height: 28px;">
-              <th colspan="4" style="background-color: #FFD400; color: #000000; font-weight: bold; text-align: center; border: 1px solid #000;">IDENTITAS SISWA</th>
-              <th colspan="5" style="background-color: #FF6FA5; color: #000000; font-weight: bold; text-align: center; border: 1px solid #000;">KEHADIRAN KELAS PAGI (${totalEfektif} HARI EFEKTIF)</th>
-              <th colspan="3" style="background-color: #6FCB6F; color: #000000; font-weight: bold; text-align: center; border: 1px solid #000;">SHOLAT DZUHUR BERJAMAAH (${totalEfektif} HARI EFEKTIF)</th>
-            </tr>
-            <tr style="background-color: #E2E8F0; color: #000000; font-weight: bold; height: 28px;">
-              <th style="border: 1px solid #000; width: 40px; text-align: center;">No</th>
-              <th style="border: 1px solid #000; width: 110px;">NISN</th>
-              <th style="border: 1px solid #000; width: 260px;">Nama Lengkap Siswa</th>
-              <th style="border: 1px solid #000; width: 45px; text-align: center;">L/P</th>
-              <th style="border: 1px solid #000; width: 55px; text-align: center;">H</th>
-              <th style="border: 1px solid #000; width: 55px; text-align: center;">S</th>
-              <th style="border: 1px solid #000; width: 55px; text-align: center;">I</th>
-              <th style="border: 1px solid #000; width: 55px; text-align: center;">A</th>
-              <th style="border: 1px solid #000; width: 75px; text-align: center;">% Hadir</th>
-              <th style="border: 1px solid #000; width: 55px; text-align: center;">H</th>
-              <th style="border: 1px solid #000; width: 55px; text-align: center;">A</th>
-              <th style="border: 1px solid #000; width: 75px; text-align: center;">% Sholat</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${tableRows}
-          </tbody>
-        </table>
-      </body>
-      </html>
-    `;
+    const totalSholatHadir = dataToExport.reduce((acc, curr) => acc + curr.sholatDzuhur.hadir, 0);
+    const totalSholatAlpa = dataToExport.reduce((acc, curr) => acc + curr.sholatDzuhur.alpa, 0);
+    const avgSholatPersen = Math.round(dataToExport.reduce((acc, curr) => acc + curr.sholatDzuhur.persentase, 0) / (dataToExport.length || 1));
 
-    const blob = new Blob([excelHtml], { type: "application/vnd.ms-excel;charset=utf-8" });
+    const ExcelJS = (await import("exceljs")).default;
+    const workbook = new ExcelJS.Workbook();
+    workbook.creator = "SMK Negeri 1 Ciomas";
+    workbook.created = new Date();
+
+    const worksheet = workbook.addWorksheet(`Rekap Presensi ${namaBulan}`, {
+      views: [{ showGridLines: true }]
+    });
+
+    worksheet.columns = [
+      { key: 'no', width: 7 },
+      { key: 'nisn', width: 22 },
+      { key: 'nama', width: 38 },
+      { key: 'gender', width: 8 },
+      { key: 'hadirKelas', width: 13 },
+      { key: 'sakitKelas', width: 13 },
+      { key: 'izinKelas', width: 13 },
+      { key: 'alpaKelas', width: 13 },
+      { key: 'persenKelas', width: 22 },
+      { key: 'hadirSholat', width: 13 },
+      { key: 'alpaSholat', width: 13 },
+      { key: 'persenSholat', width: 20 },
+    ];
+
+    const borderStyle: Partial<ExcelJS.Borders> = {
+      top: { style: 'thin', color: { argb: 'FF000000' } },
+      left: { style: 'thin', color: { argb: 'FF000000' } },
+      bottom: { style: 'thin', color: { argb: 'FF000000' } },
+      right: { style: 'thin', color: { argb: 'FF000000' } },
+    };
+
+    const row1 = worksheet.addRow(["LAPORAN REKAPITULASI PRESENSI & SHOLAT DZUHUR SISWA"]);
+    worksheet.mergeCells('A1:L1');
+    row1.height = 32;
+    row1.getCell(1).font = { name: 'Calibri', size: 16, bold: true, color: { argb: 'FF181818' } };
+    row1.getCell(1).alignment = { vertical: 'middle', horizontal: 'center' };
+
+    const row2 = worksheet.addRow([`SMK NEGERI 1 CIOMAS • KELAS XI PPLG 1 • Periode: ${namaBulan} ${selectedTahun} (${totalEfektif} Hari Efektif Sekolah)`]);
+    worksheet.mergeCells('A2:L2');
+    row2.height = 24;
+    row2.getCell(1).font = { name: 'Calibri', size: 11, italic: true, color: { argb: 'FF4A5568' } };
+    row2.getCell(1).alignment = { vertical: 'middle', horizontal: 'center' };
+
+    worksheet.addRow([]);
+
+    const row4 = worksheet.addRow([
+      "IDENTITAS SISWA", "", "", "",
+      `KEHADIRAN KELAS PAGI (${totalEfektif} HARI EFEKTIF)`, "", "", "", "",
+      `SHOLAT DZUHUR BERJAMAAH (${totalEfektif} HARI EFEKTIF)`, "", ""
+    ]);
+    worksheet.mergeCells('A4:D4');
+    worksheet.mergeCells('E4:I4');
+    worksheet.mergeCells('J4:L4');
+    row4.height = 28;
+
+    for (let c = 1; c <= 12; c++) {
+      const cell = row4.getCell(c);
+      cell.border = borderStyle;
+      cell.alignment = { vertical: 'middle', horizontal: 'center' };
+      cell.font = { name: 'Calibri', size: 11, bold: true, color: { argb: 'FF000000' } };
+      if (c >= 1 && c <= 4) cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFD400' } };
+      else if (c >= 5 && c <= 9) cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFF6FA5' } };
+      else cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF6FCB6F' } };
+    }
+
+    const row5 = worksheet.addRow([
+      "No", "NISN", "Nama Lengkap Siswa", "L/P",
+      "Hadir (H)", "Sakit (S)", "Izin (I)", "Alpa (A)", "% Kehadiran",
+      "Hadir (H)", "Alpa (A)", "% Sholat"
+    ]);
+    row5.height = 26;
+    for (let c = 1; c <= 12; c++) {
+      const cell = row5.getCell(c);
+      cell.border = borderStyle;
+      cell.alignment = { vertical: 'middle', horizontal: c === 3 ? 'left' : 'center' };
+      cell.font = { name: 'Calibri', size: 11, bold: true, color: { argb: 'FF000000' } };
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE2E8F0' } };
+    }
+
+    dataToExport.forEach((item, idx) => {
+      const dataRow = worksheet.addRow([
+        item.siswa.nomorAbsen || (idx + 1),
+        String(item.siswa.nis),
+        item.siswa.nama,
+        item.siswa.gender,
+        item.kehadiranKelas.hadir,
+        item.kehadiranKelas.sakit,
+        item.kehadiranKelas.izin,
+        item.kehadiranKelas.alpa,
+        `${item.kehadiranKelas.persentase}%`,
+        item.sholatDzuhur.hadir,
+        item.sholatDzuhur.alpa,
+        `${item.sholatDzuhur.persentase}%`
+      ]);
+      dataRow.height = 24;
+      const isEven = idx % 2 === 0;
+      const rowBgColor = isEven ? 'FFFFFFFF' : 'FFF8F9FA';
+      for (let c = 1; c <= 12; c++) {
+        const cell = dataRow.getCell(c);
+        cell.border = borderStyle;
+        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: rowBgColor } };
+        cell.alignment = { vertical: 'middle', horizontal: c === 3 ? 'left' : 'center' };
+        if (c === 2) { cell.numFmt = '@'; cell.font = { name: 'Calibri', size: 11, bold: true }; }
+        else if (c === 3) { cell.font = { name: 'Calibri', size: 11, bold: true }; }
+        else if (c === 5 || c === 10) { cell.font = { name: 'Calibri', size: 11, bold: true, color: { argb: 'FF15803D' } }; }
+        else if (c === 6) { cell.font = { name: 'Calibri', size: 11, color: { argb: 'FFB45309' } }; }
+        else if (c === 7) { cell.font = { name: 'Calibri', size: 11, color: { argb: 'FF1D4ED8' } }; }
+        else if (c === 8 || c === 11) { cell.font = { name: 'Calibri', size: 11, color: { argb: 'FFB91C1C' } }; }
+        else { cell.font = { name: 'Calibri', size: 11 }; }
+      }
+    });
+
+    const summaryRow = worksheet.addRow([
+      "TOTAL / RATA-RATA KELAS", "", "", "",
+      totalKelasHadir, totalKelasSakit, totalKelasIzin, totalKelasAlpa, `${avgKelasPersen}%`,
+      totalSholatHadir, totalSholatAlpa, `${avgSholatPersen}%`
+    ]);
+    worksheet.mergeCells(`A${summaryRow.number}:D${summaryRow.number}`);
+    summaryRow.height = 28;
+    for (let c = 1; c <= 12; c++) {
+      const cell = summaryRow.getCell(c);
+      cell.border = borderStyle;
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFEF08A' } };
+      cell.alignment = { vertical: 'middle', horizontal: 'center' };
+      cell.font = { name: 'Calibri', size: 11, bold: true, color: { argb: 'FF000000' } };
+    }
+
+    const buffer = await workbook.xlsx.writeBuffer();
+    const blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
-    link.download = `Rekap_Presensi_XI_PPLG1_${namaBulan}_${selectedTahun}_${totalEfektif}Hari.xls`;
+    link.download = `Rekap_Presensi_XI_PPLG1_${namaBulan}_${selectedTahun}_${totalEfektif}Hari.xlsx`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -229,40 +304,96 @@ export default function GuruRekapPage() {
   };
 
   const exportToCSV = () => {
-    const namaBulan = NAMA_BULAN_INDONESIA[parseInt(selectedBulan)] || selectedBulan;
-    const totalEfektif = currentEffectiveDays;
+    if (rekapData.length === 0) {
+      setAlertState({
+        isOpen: true,
+        title: "Memuat Data",
+        message: "Data rekapitulasi sedang dimuat, silakan tunggu sebentar sebelum mengekspor.",
+        type: "info",
+      });
+      return;
+    }
 
-    const headers = [
+    const namaBulan = NAMA_BULAN_INDONESIA[parseInt(selectedBulan)] || `Bulan ${selectedBulan}`;
+    const totalEfektif = currentEffectiveDays;
+    const dataToExport = filteredData.length > 0 ? filteredData : rekapData;
+
+    const totalKelasHadir = dataToExport.reduce((acc, curr) => acc + curr.kehadiranKelas.hadir, 0);
+    const totalKelasSakit = dataToExport.reduce((acc, curr) => acc + curr.kehadiranKelas.sakit, 0);
+    const totalKelasIzin = dataToExport.reduce((acc, curr) => acc + curr.kehadiranKelas.izin, 0);
+    const totalKelasAlpa = dataToExport.reduce((acc, curr) => acc + curr.kehadiranKelas.alpa, 0);
+    const avgKelasPersen = Math.round(dataToExport.reduce((acc, curr) => acc + curr.kehadiranKelas.persentase, 0) / (dataToExport.length || 1));
+
+    const totalSholatHadir = dataToExport.reduce((acc, curr) => acc + curr.sholatDzuhur.hadir, 0);
+    const totalSholatAlpa = dataToExport.reduce((acc, curr) => acc + curr.sholatDzuhur.alpa, 0);
+    const avgSholatPersen = Math.round(dataToExport.reduce((acc, curr) => acc + curr.sholatDzuhur.persentase, 0) / (dataToExport.length || 1));
+
+    // Delimiter titik-koma (;) standar untuk Microsoft Excel & regional Indonesia
+    const delimiter = ";";
+
+    const escapeCell = (val: string | number) => {
+      const str = String(val ?? "");
+      if (str.includes(delimiter) || str.includes('"') || str.includes("\n") || str.includes("\r")) {
+        return `"${str.replace(/"/g, '""')}"`;
+      }
+      return `"${str}"`;
+    };
+
+    // Header Kolom Ringkas & Jelas agar tidak terpotong di kolom standar Excel
+    const headerRow = [
       "No",
       "NISN",
       "Nama Lengkap",
       "L/P",
-      "Kelas Hadir (H)",
-      "Kelas Sakit (S)",
-      "Kelas Izin (I)",
-      "Kelas Alpa (A)",
-      "% Kehadiran Kelas",
-      "Sholat Hadir (H)",
-      "Sholat Alpa (A)",
-      "% Sholat Dzuhur",
-    ];
+      "H (Kelas)",
+      "S (Kelas)",
+      "I (Kelas)",
+      "A (Kelas)",
+      "% Kelas",
+      "H (Sholat)",
+      "A (Sholat)",
+      "% Sholat",
+    ].map(escapeCell).join(delimiter);
 
-    const rows = rekapData.map((item, idx) => [
-      idx + 1,
-      `"${item.siswa.nis}"`,
-      `"${item.siswa.nama}"`,
-      item.siswa.gender,
-      item.kehadiranKelas.hadir,
-      item.kehadiranKelas.sakit,
-      item.kehadiranKelas.izin,
-      item.kehadiranKelas.alpa,
-      `${item.kehadiranKelas.persentase}%`,
-      item.sholatDzuhur.hadir,
-      item.sholatDzuhur.alpa,
-      `${item.sholatDzuhur.persentase}%`,
-    ]);
+    // Baris Data Siswa
+    const dataRows = dataToExport.map((item, idx) => [
+      escapeCell(item.siswa.nomorAbsen || (idx + 1)),
+      escapeCell(`="${item.siswa.nis}"`), // Menampilkan 10 digit NISN utuh beserta angka 0 di Excel
+      escapeCell(item.siswa.nama),
+      escapeCell(item.siswa.gender),
+      escapeCell(item.kehadiranKelas.hadir),
+      escapeCell(item.kehadiranKelas.sakit),
+      escapeCell(item.kehadiranKelas.izin),
+      escapeCell(item.kehadiranKelas.alpa),
+      escapeCell(`${item.kehadiranKelas.persentase}%`),
+      escapeCell(item.sholatDzuhur.hadir),
+      escapeCell(item.sholatDzuhur.alpa),
+      escapeCell(`${item.sholatDzuhur.persentase}%`),
+    ].join(delimiter));
 
-    const csvContent = "\uFEFF" + [headers.join(","), ...rows.map(r => r.join(","))].join("\n");
+    // Baris Total / Rata-rata
+    const summaryRow = [
+      escapeCell("TOTAL/RATA-RATA"),
+      escapeCell("-"),
+      escapeCell(`Total ${dataToExport.length} Siswa`),
+      escapeCell("-"),
+      escapeCell(totalKelasHadir),
+      escapeCell(totalKelasSakit),
+      escapeCell(totalKelasIzin),
+      escapeCell(totalKelasAlpa),
+      escapeCell(`${avgKelasPersen}%`),
+      escapeCell(totalSholatHadir),
+      escapeCell(totalSholatAlpa),
+      escapeCell(`${avgSholatPersen}%`),
+    ].join(delimiter);
+
+    // Gabungkan konten CSV bersih dengan UTF-8 BOM (\uFEFF) untuk kompatibilitas sempurna
+    const csvContent = "\uFEFF" + [
+      headerRow,
+      ...dataRows,
+      summaryRow,
+    ].join("\r\n");
+
     const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
@@ -420,7 +551,7 @@ export default function GuruRekapPage() {
              <div className="p-4 bg-[#FFD1E3]/40 rounded-2xl brutal-border-2 space-y-2">
                <div className="flex items-center justify-between">
                  <span className="text-xs font-black uppercase text-[#181818]">
-                   Kehadiran Kelas Pagi ({hariEfektifInfo.totalHariEfektif} Hari Efektif)
+                   Kehadiran Kelas Pagi ({currentEffectiveDays} Hari Efektif)
                  </span>
                  <Badge variant={selectedStudentDetail.kehadiranKelas.persentase >= 85 ? "verified" : "yellow"} size="sm">
                    {selectedStudentDetail.kehadiranKelas.persentase}% Hadir
@@ -449,7 +580,7 @@ export default function GuruRekapPage() {
              <div className="p-4 bg-[#D4F4D4]/40 rounded-2xl brutal-border-2 space-y-2">
                <div className="flex items-center justify-between">
                  <span className="text-xs font-black uppercase text-[#181818]">
-                   Sholat Dzuhur Berjamaah ({hariEfektifInfo.totalHariEfektif} Hari Efektif)
+                   Sholat Dzuhur Berjamaah ({currentEffectiveDays} Hari Efektif)
                  </span>
                  <Badge variant={selectedStudentDetail.sholatDzuhur.persentase >= 85 ? "green" : "yellow"} size="sm">
                    {selectedStudentDetail.sholatDzuhur.persentase}% Sholat
@@ -484,77 +615,91 @@ export default function GuruRekapPage() {
       </div>
 
       {/* Filter and Calendar Bar */}
-      <div className="bg-white p-3.5 sm:p-6 rounded-3xl brutal-border-thick brutal-shadow-lg flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3 sm:gap-4 print:hidden">
-        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 sm:gap-3 w-full md:w-auto">
-          <div className="w-full sm:w-60">
+      <div className="bg-white p-4 sm:p-5 rounded-2xl sm:rounded-3xl brutal-border-thick brutal-shadow-lg space-y-3.5 print:hidden">
+        {/* Top Row: Search Input & Date Filters */}
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+          {/* Search Input */}
+          <div className="flex-1 min-w-[200px]">
             <Input
               placeholder="Cari nama atau NISN..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full text-xs sm:text-sm font-bold"
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-2 w-full sm:w-auto min-w-[240px]">
-            <Dropdown
-              options={bulanOptions}
-              value={selectedBulan}
-              onChange={(val) => setSelectedBulan(String(val))}
-              size="md"
-            />
+          {/* Month & Year Selectors */}
+          <div className="grid grid-cols-2 sm:flex sm:items-center gap-2.5 shrink-0">
+            <div className="w-full sm:w-40">
+              <Dropdown
+                options={bulanOptions}
+                value={selectedBulan}
+                onChange={(val) => setSelectedBulan(String(val))}
+                size="md"
+              />
+            </div>
 
-            <Dropdown
-              options={tahunOptions}
-              value={selectedTahun}
-              onChange={(val) => setSelectedTahun(String(val))}
-              size="md"
-            />
+            <div className="w-full sm:w-28">
+              <Dropdown
+                options={tahunOptions}
+                value={selectedTahun}
+                onChange={(val) => setSelectedTahun(String(val))}
+                size="md"
+                align="right"
+              />
+            </div>
           </div>
         </div>
 
-        <div className="flex flex-col sm:flex-row flex-wrap items-stretch sm:items-center gap-2.5 w-full md:w-auto">
+        {/* Subtle Divider */}
+        <div className="border-t border-neutral-200" />
+
+        {/* Bottom Row: Hari Efektif Info & Export Actions */}
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
           {/* Dynamic Effective Days Button */}
           <button
             type="button"
             onClick={() => setShowCalendarInfo(true)}
-            className="px-3.5 py-2.5 bg-amber-50 hover:bg-[#FFD400] text-[#181818] rounded-2xl brutal-border-2 brutal-shadow-sm flex items-center justify-center gap-2 text-xs font-black transition-all brutal-btn-press"
+            className="w-full sm:w-auto px-4 py-2 bg-amber-50 hover:bg-[#FFD400] text-[#181818] rounded-xl sm:rounded-2xl brutal-border-2 brutal-shadow-sm flex items-center justify-center sm:justify-start gap-2 text-xs sm:text-sm font-black transition-all brutal-btn-press cursor-pointer"
             title="Klik untuk melihat rincian hari libur & hari efektif kalender sekolah"
           >
-            <Calendar className="w-4 h-4 text-[#3355FF]" />
+            <Calendar className="w-4 h-4 text-[#3355FF] shrink-0" />
             <span>{currentEffectiveDays} Hari Efektif</span>
-            <Info className="w-3.5 h-3.5 text-neutral-500" />
+            <Info className="w-3.5 h-3.5 text-neutral-400 shrink-0" />
           </button>
 
-          {/* Export Excel Button */}
-          <button
-            type="button"
-            onClick={exportToExcel}
-            className="group px-4 py-2.5 bg-[#6FCB6F] hover:bg-[#5db85d] text-[#181818] rounded-2xl brutal-border-2 brutal-shadow-sm flex items-center justify-center gap-2 text-xs sm:text-sm font-black transition-all active:translate-x-[2px] active:translate-y-[2px] active:shadow-none cursor-pointer"
-            title="Unduh laporan berformat Excel (.xls) lengkap dengan format tabel resmi"
-          >
-            <div className="w-6 h-6 rounded-lg bg-white brutal-border-2 flex items-center justify-center text-emerald-800 shadow-[1px_1px_0px_#181818] shrink-0 group-hover:scale-110 transition-transform">
-              <FileSpreadsheet className="w-3.5 h-3.5 stroke-[2.5]" />
-            </div>
-            <span>Export Excel (.xls)</span>
-          </button>
+          {/* Export Excel & CSV Buttons */}
+          <div className="grid grid-cols-2 sm:flex sm:items-center gap-2.5 w-full sm:w-auto">
+            <button
+              type="button"
+              onClick={exportToExcel}
+              className="group px-4 py-2 bg-[#6FCB6F] hover:bg-[#5db85d] text-[#181818] rounded-xl sm:rounded-2xl brutal-border-2 brutal-shadow-sm flex items-center justify-center gap-2 text-xs sm:text-sm font-black transition-all active:translate-x-[2px] active:translate-y-[2px] active:shadow-none cursor-pointer"
+              title="Unduh laporan berformat Excel (.xlsx) resmi lengkap dengan format warna dan tabel rapi"
+            >
+              <div className="w-5 h-5 sm:w-6 sm:h-6 rounded-lg bg-white brutal-border-2 flex items-center justify-center text-emerald-800 shadow-[1px_1px_0px_#181818] shrink-0 group-hover:scale-110 transition-transform">
+                <FileSpreadsheet className="w-3.5 h-3.5 stroke-[2.5]" />
+              </div>
+              <span>Export Excel (.xlsx)</span>
+            </button>
 
-          {/* Export CSV Button */}
-          <button
-            type="button"
-            onClick={exportToCSV}
-            className="group px-4 py-2.5 bg-[#FFD400] hover:bg-[#eec600] text-[#181818] rounded-2xl brutal-border-2 brutal-shadow-sm flex items-center justify-center gap-2 text-xs sm:text-sm font-black transition-all active:translate-x-[2px] active:translate-y-[2px] active:shadow-none cursor-pointer"
-            title="Unduh data mentah format CSV untuk diolah di Google Sheets / Excel"
-          >
-            <div className="w-6 h-6 rounded-lg bg-white brutal-border-2 flex items-center justify-center text-[#3355FF] shadow-[1px_1px_0px_#181818] shrink-0 group-hover:scale-110 transition-transform">
-              <Download className="w-3.5 h-3.5 stroke-[2.5]" />
-            </div>
-            <span>Export CSV</span>
-          </button>
+            <button
+              type="button"
+              onClick={exportToCSV}
+              className="group px-4 py-2 bg-[#FFD400] hover:bg-[#eec600] text-[#181818] rounded-xl sm:rounded-2xl brutal-border-2 brutal-shadow-sm flex items-center justify-center gap-2 text-xs sm:text-sm font-black transition-all active:translate-x-[2px] active:translate-y-[2px] active:shadow-none cursor-pointer"
+              title="Unduh data mentah format CSV untuk diolah di Google Sheets / Excel"
+            >
+              <div className="w-5 h-5 sm:w-6 sm:h-6 rounded-lg bg-white brutal-border-2 flex items-center justify-center text-[#3355FF] shadow-[1px_1px_0px_#181818] shrink-0 group-hover:scale-110 transition-transform">
+                <Download className="w-3.5 h-3.5 stroke-[2.5]" />
+              </div>
+              <span>Export CSV</span>
+            </button>
+          </div>
         </div>
       </div>
 
       {/* 46 Students Master Table */}
-      <div className="bg-white rounded-3xl brutal-border-thick brutal-shadow-xl overflow-hidden">
-        <div className="sm:hidden px-4 py-2 bg-[#FFD400] text-[11px] font-bold text-[#181818] border-b-2 border-[#181818] flex items-center justify-between print:hidden">
+      <div className="bg-white rounded-2xl sm:rounded-3xl brutal-border-thick brutal-shadow-xl overflow-hidden w-full max-w-full">
+        <div className="sm:hidden px-3.5 py-2 bg-[#FFD400] text-[11px] font-black text-[#181818] border-b-2 border-[#181818] flex items-center justify-between print:hidden">
           <span>Geser tabel ke samping untuk detail sholat</span>
           <span className="font-mono font-black">&lt;&gt;</span>
         </div>
@@ -703,15 +848,42 @@ export default function GuruRekapPage() {
           </table>
         </div>
 
-        <div className="p-4 bg-neutral-100 border-t-3 border-[#181818] flex flex-col sm:flex-row items-center justify-between text-xs font-black text-neutral-700 gap-2">
-          <span>Total: 46 Siswa Terdaftar di Kelas XI PPLG 1 • Periode {hariEfektifInfo.namaBulan} {selectedTahun} ({hariEfektifInfo.totalHariEfektif} Hari Efektif)</span>
-          <div className="flex items-center gap-4">
-            <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-[#6FCB6F] inline-block brutal-border-2" /> ≥ 85%: Sangat Baik</span>
-            <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-[#FFD400] inline-block brutal-border-2" /> 70–84%: Cukup</span>
-            <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-red-500 inline-block brutal-border-2" /> &lt; 70%: Peringatan</span>
+        <div className="p-3.5 sm:p-5 bg-neutral-50 border-t-2 sm:border-t-3 border-[#181818] flex flex-col md:flex-row items-start md:items-center justify-between gap-3 text-xs font-bold text-neutral-700">
+          <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
+            <span className="font-black text-[#181818] text-xs sm:text-sm">
+              Total 46 Siswa
+            </span>
+            <span className="text-neutral-400">•</span>
+            <span className="text-neutral-600 text-[11px] sm:text-xs font-bold">
+              Periode {hariEfektifInfo.namaBulan} {selectedTahun} ({hariEfektifInfo.totalHariEfektif} Hari Efektif)
+            </span>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 text-[10px] sm:text-xs font-black">
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-green-100 text-green-900 rounded-xl border-2 border-[#181818] shadow-[1px_1px_0px_#181818]">
+              <span className="w-2 h-2 rounded-full bg-[#6FCB6F] border border-[#181818]" />
+              <span>≥ 85% Sangat Baik</span>
+            </span>
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-yellow-100 text-yellow-900 rounded-xl border-2 border-[#181818] shadow-[1px_1px_0px_#181818]">
+              <span className="w-2 h-2 rounded-full bg-[#FFD400] border border-[#181818]" />
+              <span>70–84% Cukup</span>
+            </span>
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-red-100 text-red-900 rounded-xl border-2 border-[#181818] shadow-[1px_1px_0px_#181818]">
+              <span className="w-2 h-2 rounded-full bg-red-500 border border-[#181818]" />
+              <span>&lt; 70% Peringatan</span>
+            </span>
           </div>
         </div>
       </div>
+
+      {/* Modern Alert Dialog */}
+      <AlertDialog
+        isOpen={alertState.isOpen}
+        onClose={() => setAlertState((prev) => ({ ...prev, isOpen: false }))}
+        title={alertState.title}
+        message={alertState.message}
+        type={alertState.type}
+      />
     </div>
   );
 }

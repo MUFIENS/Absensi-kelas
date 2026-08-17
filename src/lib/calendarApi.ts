@@ -63,25 +63,6 @@ export const NAMA_HARI_INDONESIA = [
 
 // Database Kalender Libur Nasional & Cuti Bersama Resmi (SKB 3 Menteri)
 export const HOLIDAYS_DATABASE: Record<number, HariLiburNasional[]> = {
-  2025: [
-    { tanggal: "2025-01-01", nama: "Tahun Baru 2025 Masehi" },
-    { tanggal: "2025-01-27", nama: "Isra Miraj Nabi Muhammad SAW" },
-    { tanggal: "2025-01-29", nama: "Tahun Baru Imlek 2576 Kongzili" },
-    { tanggal: "2025-03-29", nama: "Hari Suci Nyepi (Tahun Baru Saka 1947)" },
-    { tanggal: "2025-03-31", nama: "Hari Raya Idul Fitri 1446 H (Hari ke-1)" },
-    { tanggal: "2025-04-01", nama: "Hari Raya Idul Fitri 1446 H (Hari ke-2)" },
-    { tanggal: "2025-04-18", nama: "Wafat Yesus Kristus" },
-    { tanggal: "2025-04-20", nama: "Hari Paskah" },
-    { tanggal: "2025-05-01", nama: "Hari Buruh Internasional" },
-    { tanggal: "2025-05-12", nama: "Hari Raya Waisak 2569 BE" },
-    { tanggal: "2025-05-29", nama: "Kenaikan Yesus Kristus" },
-    { tanggal: "2025-06-01", nama: "Hari Lahir Pancasila" },
-    { tanggal: "2025-06-07", nama: "Hari Raya Idul Adha 1446 H" },
-    { tanggal: "2025-06-27", nama: "Tahun Baru Islam 1447 H" },
-    { tanggal: "2025-08-17", nama: "Hari Kemerdekaan RI Ke-80" },
-    { tanggal: "2025-09-05", nama: "Maulid Nabi Muhammad SAW" },
-    { tanggal: "2025-12-25", nama: "Hari Raya Natal" },
-  ],
   2026: [
     { tanggal: "2026-01-01", nama: "Tahun Baru 2026 Masehi" },
     { tanggal: "2026-01-16", nama: "Isra Miraj Nabi Muhammad SAW" },

@@ -25,11 +25,32 @@ const plusJakartaSans = Plus_Jakarta_Sans({
 
 export const metadata: Metadata = {
   title: "Absensi QR XI PPLG 1 — SMKN 1 Ciomas",
-  description: "Aplikasi Absensi Siswa Kelas XI PPLG 1 SMKN 1 Ciomas Berbasis Dynamic QR Code & Live Camera Selfie Verification",
+  description: "Sistem Informasi Presensi Digital Siswa Kelas XI PPLG 1 SMKN 1 Ciomas Berbasis Dynamic QR Code, Live Camera Selfie & Geofencing GPS Anti-Titip Absen.",
+  keywords: [
+    "Absensi QR",
+    "XI PPLG 1",
+    "SMKN 1 Ciomas",
+    "Presensi Digital",
+    "Sholat Dzuhur",
+    "Absensi Kelas"
+  ],
+  authors: [{ name: "XI PPLG 1 SMKN 1 Ciomas" }],
   manifest: "/manifest.json",
   icons: {
     icon: "/icon.svg",
     apple: "/icon.svg",
+  },
+  openGraph: {
+    title: "Absensi QR XI PPLG 1 — SMKN 1 Ciomas",
+    description: "Sistem Presensi Siswa Kelas XI PPLG 1 SMKN 1 Ciomas dengan QR Dinamis & Selfie Verifikasi GPS.",
+    type: "website",
+    locale: "id_ID",
+    siteName: "Absensi XI PPLG 1",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Absensi QR XI PPLG 1 — SMKN 1 Ciomas",
+    description: "Presensi Pagi & Sholat Dzuhur Cepat, Akurat, dan Anti-Titip Absen.",
   },
   appleWebApp: {
     capable: true,
@@ -42,7 +63,7 @@ export const viewport = {
   themeColor: "#FFD400",
   width: "device-width",
   initialScale: 1,
-  maximumScale: 1,
+  maximumScale: 5,
 };
 
 import { SmoothScrollProvider } from "@/components/providers/SmoothScrollProvider";

@@ -24,6 +24,7 @@ import { AppIcon } from "@/components/ui/AppIcon";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
+import { AlertDialog } from "@/components/ui/Dialog";
 import { exportDatabaseBackupAction, fetchRekapKelasAction, fetchTodayDashboardOverviewAction } from "@/app/actions/absensiActions";
 import { supabase } from "@/lib/supabaseClient";
 import { getJakartaDateString } from "@/lib/dateUtils";
@@ -38,6 +39,12 @@ import { AuthSession, AbsensiRecord, RekapItemSiswa, QRSesi } from "@/lib/types"
 export default function GuruDashboardPage() {
   const [auth, setAuth] = useState<AuthSession | null>(null);
   const [records, setRecords] = useState<AbsensiRecord[]>([]);
+  const [alertState, setAlertState] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: string;
+    type: "info" | "warning" | "danger" | "success";
+  }>({ isOpen: false, title: "", message: "", type: "info" });
   const [rekap, setRekap] = useState<RekapItemSiswa[]>([]);
   const [sesiKelas, setSesiKelas] = useState<QRSesi | null>(null);
   const [sesiSholat, setSesiSholat] = useState<QRSesi | null>(null);
@@ -129,6 +136,8 @@ export default function GuruDashboardPage() {
   useEffect(() => {
     const currentAuth = getStoredAuth();
     setAuth(currentAuth);
+    setSesiKelas(getActiveQRSesi("kehadiran_kelas"));
+    setSesiSholat(getActiveQRSesi("sholat_dzuhur"));
 
     loadLiveDashboardData();
 
@@ -200,10 +209,20 @@ export default function GuruDashboardPage() {
         document.body.removeChild(link);
         URL.revokeObjectURL(url);
       } else {
-        alert(res.message || "Gagal membuat file backup database.");
+        setAlertState({
+          isOpen: true,
+          title: "Gagal Backup Database",
+          message: res.message || "Gagal membuat file backup database.",
+          type: "danger",
+        });
       }
     } catch {
-      alert("Terjadi kendala koneksi saat mengekspor database.");
+      setAlertState({
+        isOpen: true,
+        title: "Kendala Koneksi",
+        message: "Terjadi kendala koneksi saat mengekspor database.",
+        type: "danger",
+      });
     } finally {
       setIsBackingUp(false);
     }
@@ -212,15 +231,15 @@ export default function GuruDashboardPage() {
   return (
     <div className="max-w-6xl mx-auto space-y-6">
       {/* Wali Kelas Welcome Banner */}
-      <div className="bg-[#FF6FA5] text-[#181818] p-6 sm:p-8 rounded-[36px] brutal-border-thick brutal-shadow-lg relative overflow-hidden bg-comic-dots">
-        <div className="relative z-10 flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
-          <div className="space-y-2.5 flex-1 min-w-0">
-            <div className="inline-flex items-center gap-2 bg-[#FFD400] text-[#181818] px-3.5 py-1 rounded-xl brutal-border-2 font-black text-xs">
-              <AppIcon name="teacher" className="w-4 h-4 text-[#3355FF]" />
+      <div className="bg-[#FF6FA5] text-[#181818] p-4 sm:p-6 md:p-8 rounded-2xl sm:rounded-[32px] brutal-border-thick brutal-shadow-lg relative overflow-hidden bg-comic-dots">
+        <div className="relative z-10 flex flex-col md:flex-row items-start md:items-center justify-between gap-4 sm:gap-6">
+          <div className="space-y-1.5 sm:space-y-2.5 flex-1 min-w-0">
+            <div className="inline-flex items-center gap-1.5 sm:gap-2 bg-[#FFD400] text-[#181818] px-2.5 sm:px-3.5 py-0.5 sm:py-1 rounded-lg sm:rounded-xl brutal-border-2 font-black text-[10px] sm:text-xs">
+              <AppIcon name="teacher" className="w-3.5 h-3.5 text-[#3355FF]" />
               <span>RUANG WALI KELAS XI PPLG 1</span>
             </div>
 
-            <h2 className="text-2xl sm:text-3xl lg:text-4xl font-black font-fredoka leading-tight tracking-tight text-[#181818]">
+            <h2 className="text-xl sm:text-3xl lg:text-4xl font-black font-fredoka leading-tight tracking-tight text-[#181818]">
               Selamat Datang, {auth?.user.nama || "Pak Didin S.Kom"}!
             </h2>
 
@@ -237,7 +256,7 @@ export default function GuruDashboardPage() {
                 className="w-full justify-center gap-2 font-black text-xs sm:text-sm py-3 shadow-[2.5px_2.5px_0px_#181818]"
               >
                 <AppIcon name="mosque" className="w-4 h-4 text-green-900" />
-                <span>{sesiSholat ? "Layar QR Sholat (Aktif)" : "Buka Layar QR Sholat"}</span>
+                <span>Layar QR Sholat</span>
               </Button>
             </Link>
 
@@ -419,121 +438,137 @@ export default function GuruDashboardPage() {
         </div>
 
         {/* Antrian Selfie Masuk */}
-        <div className="bg-white p-3.5 sm:p-5 rounded-3xl brutal-border-thick brutal-shadow flex flex-col justify-between gap-3">
+        <Link
+          href="/dashboard/guru/verifikasi"
+          className="bg-white p-3.5 sm:p-5 rounded-2xl sm:rounded-3xl brutal-border-thick brutal-shadow flex flex-col justify-between gap-2.5 group hover:border-[#3355FF] transition-all cursor-pointer"
+        >
           <div className="flex items-center justify-between">
             <span className="text-[10px] sm:text-xs font-black text-neutral-500 uppercase tracking-wider">
-              Antrian Selfie
+              Antrean Selfie
             </span>
-            <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-[#FFD400] text-[#181818] flex items-center justify-center brutal-border-2 shrink-0">
+            <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-[#FFD400] text-[#181818] flex items-center justify-center brutal-border-2 shrink-0 group-hover:scale-105 transition-transform">
               <Clock className="w-4 h-4 sm:w-5 sm:h-5 stroke-[2.5]" />
             </div>
           </div>
-          <div className="space-y-1.5">
+          <div>
             <p className="text-2xl sm:text-3xl font-black font-fredoka text-amber-600 leading-none">
               {totalPendingToday} <span className="text-xs sm:text-sm font-bold text-neutral-500">Selfie</span>
             </p>
-            <Link
-              href="/dashboard/guru/verifikasi"
-              className="inline-flex items-center justify-between px-2.5 py-1 bg-[#3355FF] text-white hover:bg-blue-600 text-[10px] sm:text-[11px] font-black rounded-lg brutal-border-2 shadow-[1.5px_1.5px_0px_#181818] active:translate-x-[1px] active:translate-y-[1px] active:shadow-none transition-all group/btn w-full"
-            >
-              <span>Verifikasi</span>
-              <ArrowRight className="w-3 h-3 group-hover/btn:translate-x-0.5 transition-transform shrink-0" />
-            </Link>
+            <p className="text-[10px] sm:text-[11px] font-extrabold text-[#3355FF] mt-1 flex items-center gap-1 group-hover:underline">
+              <span>Review Selfie</span>
+              <ArrowRight className="w-3 h-3 group-hover:translate-x-0.5 transition-transform" />
+            </p>
           </div>
-        </div>
+        </Link>
 
         {/* Siswa Perlu Perhatian */}
-        <div className="bg-white p-3.5 sm:p-5 rounded-3xl brutal-border-thick brutal-shadow flex flex-col justify-between gap-3">
+        <Link
+          href="/dashboard/guru/rekap"
+          className="bg-white p-3.5 sm:p-5 rounded-2xl sm:rounded-3xl brutal-border-thick brutal-shadow flex flex-col justify-between gap-2.5 group hover:border-red-500 transition-all cursor-pointer"
+        >
           <div className="flex items-center justify-between">
             <span className="text-[10px] sm:text-xs font-black text-neutral-500 uppercase tracking-wider">
               Perlu Perhatian
             </span>
-            <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-red-100 text-red-600 flex items-center justify-center brutal-border-2 border-red-300 shrink-0">
+            <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-red-100 text-red-600 flex items-center justify-center brutal-border-2 border-red-300 shrink-0 group-hover:scale-105 transition-transform">
               <AlertCircle className="w-4 h-4 sm:w-5 sm:h-5 stroke-[2.5]" />
             </div>
           </div>
-          <div className="space-y-1.5">
+          <div>
             <p className="text-2xl sm:text-3xl font-black font-fredoka text-red-500 leading-none">
               {lowAttendanceStudents.length} <span className="text-xs sm:text-sm font-bold text-neutral-500">Siswa</span>
             </p>
-            <Link
-              href="/dashboard/guru/rekap"
-              className="inline-flex items-center justify-between px-2 py-1 bg-red-50 text-red-700 hover:bg-red-100 text-[10px] sm:text-[11px] font-black rounded-lg brutal-border-2 border-red-300 transition-all group/btn w-full"
-            >
-              <span className="truncate">Presensi &lt; 80%</span>
-              <span className="flex items-center gap-1 shrink-0 font-bold">
-                Cek <ArrowRight className="w-3 h-3 group-hover/btn:translate-x-0.5 transition-transform" />
-              </span>
-            </Link>
+            <p className="text-[10px] sm:text-[11px] font-extrabold text-red-600 mt-1 flex items-center gap-1 group-hover:underline">
+              <span>Presensi &lt; 80%</span>
+              <ArrowRight className="w-3 h-3 group-hover:translate-x-0.5 transition-transform" />
+            </p>
           </div>
-        </div>
+        </Link>
       </div>
 
       {/* 3 Main Action Feature Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-6">
         {/* Feature 1: QR Sholat */}
-        <Card variant="white" shadow="lg" className="space-y-4">
-          <div className="w-12 h-12 rounded-2xl bg-[#6FCB6F] text-[#181818] flex items-center justify-center brutal-border brutal-shadow-sm">
-            <AppIcon name="mosque" className="w-7 h-7" />
+        <div className="bg-white p-4 sm:p-5 rounded-2xl sm:rounded-3xl brutal-border-thick brutal-shadow flex flex-col justify-between gap-4 group hover:translate-y-[-2px] transition-all">
+          <div className="space-y-3">
+            <div className="w-11 h-11 rounded-2xl bg-[#6FCB6F] text-[#181818] flex items-center justify-center brutal-border brutal-shadow-sm">
+              <AppIcon name="mosque" className="w-6 h-6" />
+            </div>
+            <div>
+              <h3 className="text-base sm:text-lg font-black font-fredoka text-[#181818]">
+                1. Proyektor QR Sholat
+              </h3>
+              <p className="text-xs font-bold text-neutral-600 mt-1 leading-relaxed">
+                Tampilkan QR Code dinamis sholat dzuhur di mushola sekolah pada jam istirahat siang.
+              </p>
+            </div>
           </div>
-          <div>
-            <h3 className="text-lg font-black font-fredoka text-[#181818]">
-              1. Layar Proyektor QR Sholat
-            </h3>
-            <p className="text-xs font-bold text-neutral-600 mt-1">
-              Tampilkan QR Code dinamis sholat dzuhur di mushola sekolah pada jam istirahat siang (12:00–13:00 WIB).
-            </p>
-          </div>
-          <Link href="/dashboard/guru/qr-sholat" className="block pt-2">
-            <Button variant="green" size="md" className="w-full justify-center gap-2 text-xs font-black">
-              <span>{sesiSholat ? "Buka Layar QR (Sedang Aktif)" : "Buka Layar QR Sholat"}</span>
-              <ArrowRight className="w-4 h-4" />
-            </Button>
+          <Link
+            href="/dashboard/guru/qr-sholat"
+            className="w-full py-2.5 px-3.5 bg-[#6FCB6F] hover:bg-emerald-400 text-[#181818] rounded-xl brutal-border-2 shadow-[2px_2px_0px_#181818] active:translate-x-[1px] active:translate-y-[1px] active:shadow-none flex items-center justify-between text-xs font-black transition-all cursor-pointer"
+          >
+            <span>Buka Layar QR</span>
+            <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform shrink-0" />
           </Link>
-        </Card>
+        </div>
 
         {/* Feature 2: Verifikasi Bukti Selfie */}
-        <Card variant="white" shadow="lg" className="space-y-4">
-          <div className="w-12 h-12 rounded-2xl bg-[#FFD400] text-[#181818] flex items-center justify-center brutal-border brutal-shadow-sm">
-            <ShieldCheck className="w-6 h-6 stroke-[2.5]" />
+        <div className="bg-white p-4 sm:p-5 rounded-2xl sm:rounded-3xl brutal-border-thick brutal-shadow flex flex-col justify-between gap-4 group hover:translate-y-[-2px] transition-all">
+          <div className="space-y-3">
+            <div className="w-11 h-11 rounded-2xl bg-[#FFD400] text-[#181818] flex items-center justify-center brutal-border brutal-shadow-sm">
+              <ShieldCheck className="w-5 h-5 stroke-[2.5]" />
+            </div>
+            <div>
+              <h3 className="text-base sm:text-lg font-black font-fredoka text-[#181818]">
+                2. Verifikasi Selfie ({totalPendingToday})
+              </h3>
+              <p className="text-xs font-bold text-neutral-600 mt-1 leading-relaxed">
+                Review keaslian foto selfie wajah dan verifikasi radius presensi siswa hari ini.
+              </p>
+            </div>
           </div>
-          <div>
-            <h3 className="text-lg font-black font-fredoka text-[#181818]">
-              2. Validasi &amp; Verifikasi Bukti ({totalPendingToday})
-            </h3>
-            <p className="text-xs font-bold text-neutral-600 mt-1">
-              Review keaslian foto selfie wajah dan verifikasi radius presensi siswa yang masuk hari ini.
-            </p>
-          </div>
-          <Link href="/dashboard/guru/verifikasi" className="block pt-2">
-            <Button variant="yellow" size="md" className="w-full justify-center gap-2 text-xs font-black">
-              <span>Review Selfie Masuk</span>
-              <ArrowRight className="w-4 h-4" />
-            </Button>
+          <Link
+            href="/dashboard/guru/verifikasi"
+            className="w-full py-2.5 px-3.5 bg-[#FFD400] hover:bg-yellow-400 text-[#181818] rounded-xl brutal-border-2 shadow-[2px_2px_0px_#181818] active:translate-x-[1px] active:translate-y-[1px] active:shadow-none flex items-center justify-between text-xs font-black transition-all cursor-pointer"
+          >
+            <span>Review Selfie</span>
+            <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform shrink-0" />
           </Link>
-        </Card>
+        </div>
 
         {/* Feature 3: Master Rekapitulasi */}
-        <Card variant="white" shadow="lg" className="space-y-4">
-          <div className="w-12 h-12 rounded-2xl bg-[#3355FF] text-white flex items-center justify-center brutal-border brutal-shadow-sm">
-            <FileSpreadsheet className="w-6 h-6 stroke-[2.5]" />
+        <div className="bg-white p-4 sm:p-5 rounded-2xl sm:rounded-3xl brutal-border-thick brutal-shadow flex flex-col justify-between gap-4 group hover:translate-y-[-2px] transition-all">
+          <div className="space-y-3">
+            <div className="w-11 h-11 rounded-2xl bg-[#3355FF] text-white flex items-center justify-center brutal-border brutal-shadow-sm">
+              <FileSpreadsheet className="w-5 h-5 stroke-[2.5]" />
+            </div>
+            <div>
+              <h3 className="text-base sm:text-lg font-black font-fredoka text-[#181818]">
+                3. Master Rekapitulasi
+              </h3>
+              <p className="text-xs font-bold text-neutral-600 mt-1 leading-relaxed">
+                Pantau persentase hadir, sakit, izin, alpa dan export file Excel resmi 1-klik.
+              </p>
+            </div>
           </div>
-          <div>
-            <h3 className="text-lg font-black font-fredoka text-[#181818]">
-              3. Master Rekapitulasi 46 Siswa
-            </h3>
-            <p className="text-xs font-bold text-neutral-600 mt-1">
-              Pantau persentase hadir, sakit, izin, dan alpa dengan opsi download file Excel resmi 1-klik.
-            </p>
-          </div>
-          <Link href="/dashboard/guru/rekap" className="block pt-2">
-            <Button variant="primary" size="md" className="w-full justify-center gap-2 text-xs font-black">
-              <span>Buka Master Rekap</span>
-              <ArrowRight className="w-4 h-4" />
-            </Button>
+          <Link
+            href="/dashboard/guru/rekap"
+            className="w-full py-2.5 px-3.5 bg-[#3355FF] hover:bg-blue-600 text-white rounded-xl brutal-border-2 shadow-[2px_2px_0px_#181818] active:translate-x-[1px] active:translate-y-[1px] active:shadow-none flex items-center justify-between text-xs font-black transition-all cursor-pointer"
+          >
+            <span>Buka Master Rekap</span>
+            <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform shrink-0" />
           </Link>
-        </Card>
+        </div>
       </div>
+
+      {/* Modern Alert Dialog */}
+      <AlertDialog
+        isOpen={alertState.isOpen}
+        onClose={() => setAlertState((prev) => ({ ...prev, isOpen: false }))}
+        title={alertState.title}
+        message={alertState.message}
+        type={alertState.type}
+      />
     </div>
   );
 }

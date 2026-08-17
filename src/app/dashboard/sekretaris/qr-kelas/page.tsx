@@ -26,11 +26,11 @@ import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import { Modal } from "@/components/ui/Modal";
-import { Dialog, ConfirmDialog } from "@/components/ui/Dialog";
+import { Dialog, ConfirmDialog, AlertDialog } from "@/components/ui/Dialog";
 import { getStoredAuth } from "@/lib/store";
 import { supabase } from "@/lib/supabaseClient";
 import { createQRSesiAction, deactivateQRSesiAction } from "@/app/actions/absensiActions";
-import { getJakartaDateString } from "@/lib/dateUtils";
+import { getJakartaDateString, formatWIBTime } from "@/lib/dateUtils";
 import { QRSesi, AbsensiRecord, AuthSession } from "@/lib/types";
 
 export default function SekretarisQRKelasPage() {
@@ -39,8 +39,6 @@ export default function SekretarisQRKelasPage() {
   const [records, setRecords] = useState<AbsensiRecord[]>([]);
   const [isLoaded, setIsLoaded] = useState<boolean>(false);
   const [isLoading, setIsLoading] = useState<boolean>(false);
-
-  // Timer & Expiry State
   const [timeLeftStr, setTimeLeftStr] = useState<string>("00:00");
   const [isExpired, setIsExpired] = useState<boolean>(false);
   const [copiedLink, setCopiedLink] = useState<boolean>(false);
@@ -49,6 +47,12 @@ export default function SekretarisQRKelasPage() {
   const [isCreateModalOpen, setIsCreateModalOpen] = useState<boolean>(false);
   const [isCloseConfirmOpen, setIsCloseConfirmOpen] = useState<boolean>(false);
   const [selectedDuration, setSelectedDuration] = useState<number>(45);
+  const [alertState, setAlertState] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: string;
+    type: "info" | "warning" | "danger" | "success";
+  }>({ isOpen: false, title: "", message: "", type: "info" });
 
   const calculateTimeRemaining = (session: QRSesi | null) => {
     if (!session || !session.isActive) {
@@ -230,10 +234,20 @@ export default function SekretarisQRKelasPage() {
         setTimeLeftStr(calc.text);
         setIsCreateModalOpen(false);
       } else {
-        alert(res.message || "Gagal membuat sesi QR.");
+        setAlertState({
+          isOpen: true,
+          title: "Gagal Membuat Sesi",
+          message: res.message || "Gagal membuat sesi QR kelas.",
+          type: "danger",
+        });
       }
     } catch {
-      alert("Terjadi kendala koneksi server saat membuat sesi QR.");
+      setAlertState({
+        isOpen: true,
+        title: "Kendala Koneksi",
+        message: "Terjadi kendala koneksi server saat membuat sesi QR.",
+        type: "danger",
+      });
     } finally {
       setIsLoading(false);
     }
@@ -389,7 +403,7 @@ export default function SekretarisQRKelasPage() {
     setTimeout(() => setCopiedLink(false), 2000);
   };
 
-  const today = new Date().toLocaleDateString("en-CA");
+  const today = getJakartaDateString();
   const todayRecords = records.filter(
     (r) => r.jenis === "kehadiran_kelas" && r.tanggal === today
   );
@@ -409,26 +423,21 @@ export default function SekretarisQRKelasPage() {
           <h1 className="text-xl sm:text-3xl font-black font-fredoka text-[#181818]">
             Proyektor QR Kelas Pagi
           </h1>
-          <p className="text-xs sm:text-sm font-bold text-neutral-600">
+          <p className="text-xs sm:text-sm font-bold text-neutral-600 mt-1">
             Kelola sesi aktif, batasan waktu kedaluwarsa, dan bagikan QR presensi kelas XI PPLG 1.
           </p>
         </div>
 
-        <div className="flex items-center gap-2 self-start sm:self-center">
+        <div className="self-start sm:self-center shrink-0">
           <Button
             variant="primary"
             size="md"
             onClick={() => setIsCreateModalOpen(true)}
-            className="gap-2 text-xs sm:text-sm"
+            className="gap-2 text-xs sm:text-sm font-black whitespace-nowrap"
           >
-            <PlusCircle className="w-4 h-4" />
-            <span>{activeSession ? "Ganti Sesi" : "Buka Sesi QR"}</span>
+            <PlusCircle className="w-4 h-4 stroke-[2.5]" />
+            <span>Buka Sesi QR Baru</span>
           </Button>
-
-          <Badge variant="pink" size="md" className="gap-1.5 hidden sm:flex text-xs">
-            <AppIcon name="sun" className="w-4 h-4" />
-            <span>SESI PAGI</span>
-          </Badge>
         </div>
       </div>
 
@@ -459,7 +468,7 @@ export default function SekretarisQRKelasPage() {
             ) : (
               <Badge variant="green" size="md" className="gap-1.5 animate-pulse">
                 <Clock className="w-3.5 h-3.5" />
-                <span>SISA WAKTU: {timeLeftStr}</span>
+                <span suppressHydrationWarning>SISA WAKTU: {timeLeftStr}</span>
               </Badge>
             )}
           </div>
@@ -483,19 +492,19 @@ export default function SekretarisQRKelasPage() {
                 <p className="text-[11px] font-black uppercase text-[#181818]/70">
                   Pilih Durasi Sesi:
                 </p>
-                <div className="grid grid-cols-3 gap-1.5">
-                  {[15, 30, 45, 60, 90, 120].map((d) => (
+                <div className="grid grid-cols-3 gap-2">
+                  {[15, 30, 45, 60, 90, 120].map((dur) => (
                     <button
-                      key={d}
+                      key={dur}
                       type="button"
-                      onClick={() => setSelectedDuration(d)}
-                      className={`py-2 rounded-xl text-xs font-black transition-all ${
-                        selectedDuration === d
+                      onClick={() => setSelectedDuration(dur)}
+                      className={`py-2 rounded-xl font-black text-xs transition-all ${
+                        selectedDuration === dur
                           ? "bg-[#181818] text-[#FFD400] brutal-border-2"
-                          : "bg-white text-[#181818] border-2 border-neutral-300 hover:bg-neutral-100"
+                          : "bg-white text-[#181818] hover:bg-white/80 border-2 border-[#181818]"
                       }`}
                     >
-                      {d} Menit
+                      {dur}m
                     </button>
                   ))}
                 </div>
@@ -505,63 +514,61 @@ export default function SekretarisQRKelasPage() {
                 variant="primary"
                 size="lg"
                 onClick={() => handleCreateNewSession(selectedDuration)}
-                className="w-full justify-center gap-2 text-sm sm:text-base mt-2"
+                className="w-full justify-center gap-2 text-sm font-black shadow-lg"
               >
-                <PlayCircle className="w-5 h-5" />
-                <span>Mulai & Buka Sesi ({selectedDuration} Menit)</span>
+                <PlayCircle className="w-5 h-5 stroke-[2.5]" />
+                <span>Buka Sesi ({selectedDuration} Menit)</span>
               </Button>
             </div>
           ) : (
-            /* QR Box Container with Expired Overlay */
-            <div id="qr-kelas-box" className="relative p-5 sm:p-6 bg-[#FFD400] rounded-3xl brutal-border-thick brutal-shadow-lg max-w-xs sm:max-w-sm w-full">
-              <div className={`bg-white p-3.5 sm:p-4 rounded-2xl brutal-border-2 transition-all ${
-                isExpired ? "opacity-25 blur-xs pointer-events-none" : ""
-              }`}>
-                <QRCodeSVG
-                  value={
-                    typeof window !== "undefined"
-                      ? `${window.location.origin}/dashboard/siswa/absen?token=${activeSession.token}`
-                      : activeSession.token
-                  }
-                  size={200}
-                  level="H"
-                  includeMargin={true}
-                  className="mx-auto max-w-full h-auto"
-                />
+            <div className="flex flex-col items-center space-y-4 max-w-md w-full">
+              {/* QR Container Frame */}
+              <div className="p-4 sm:p-6 bg-white rounded-3xl brutal-border-thick brutal-shadow-lg flex items-center justify-center w-full max-w-[340px] sm:max-w-[380px] aspect-square relative">
+                {isExpired ? (
+                  <div className="absolute inset-0 bg-neutral-900/90 rounded-2xl flex flex-col items-center justify-center text-white p-4 space-y-2 text-center backdrop-blur-xs z-10">
+                    <Lock className="w-10 h-10 text-red-400" />
+                    <p className="font-black text-sm text-red-300">Sesi QR Kedaluwarsa</p>
+                    <p className="text-xs text-neutral-300">
+                      Buka sesi baru untuk melanjutkan absensi kelas.
+                    </p>
+                  </div>
+                ) : null}
+
+                <div id="qr-code-to-share" className="w-full h-full flex items-center justify-center p-2">
+                  <QRCodeSVG
+                    value={activeSession.token}
+                    size={280}
+                    level="H"
+                    includeMargin={false}
+                    className="w-full h-full max-w-[280px] max-h-[280px]"
+                  />
+                </div>
               </div>
 
               {/* Token Display */}
-              <div className="mt-3 bg-[#181818] text-[#FFD400] px-4 py-2 rounded-xl font-mono font-black text-sm tracking-widest uppercase flex items-center justify-center gap-2">
-                <span>{activeSession.token}</span>
+              <div className="bg-[#F4F4F0] px-4 py-2 rounded-2xl brutal-border-2 flex items-center justify-between gap-3 w-full max-w-[340px] sm:max-w-[380px]">
+                <div className="flex items-center gap-2 min-w-0">
+                  <span className="text-[10px] font-black uppercase text-neutral-500">Token:</span>
+                  <span className="font-mono font-black text-sm text-[#181818] tracking-wider truncate">
+                    {activeSession.token}
+                  </span>
+                </div>
                 <button
-                  type="button"
                   onClick={handleCopyToken}
+                  className="p-1.5 hover:bg-neutral-200 rounded-lg text-neutral-700 transition-colors shrink-0 cursor-pointer"
                   title="Salin Token"
-                  className="text-white hover:text-[#FFD400]"
                 >
-                  {copiedLink ? <Check className="w-4 h-4 text-green-400" /> : <Copy className="w-4 h-4" />}
+                  {copiedLink ? <Check className="w-4 h-4 text-green-600" /> : <Copy className="w-4 h-4" />}
                 </button>
               </div>
 
-              {/* Expired Overlay */}
               {isExpired && (
-                <div className="absolute inset-0 bg-[#181818]/90 rounded-3xl flex flex-col items-center justify-center p-6 text-white text-center space-y-3 z-10 animate-in fade-in">
-                  <div className="w-14 h-14 rounded-2xl bg-red-600 text-white flex items-center justify-center brutal-border-2">
-                    <Lock className="w-8 h-8" />
-                  </div>
-                  <div>
-                    <h4 className="text-xl font-black font-fredoka text-[#FF6FA5]">
-                      SESI KEDALUWARSA
-                    </h4>
-                    <p className="text-xs font-bold text-neutral-300">
-                      QR Code ini tidak dapat digunakan lagi untuk absen.
-                    </p>
-                  </div>
+                <div className="w-full max-w-[340px] sm:max-w-[380px]">
                   <Button
-                    variant="yellow"
-                    size="sm"
+                    variant="primary"
+                    size="md"
                     onClick={() => setIsCreateModalOpen(true)}
-                    className="gap-1.5 text-xs text-[#181818]"
+                    className="w-full justify-center gap-2 text-xs sm:text-sm font-black"
                   >
                     <PlusCircle className="w-4 h-4" />
                     <span>Buka Sesi Baru</span>
@@ -574,8 +581,8 @@ export default function SekretarisQRKelasPage() {
           {/* Action Buttons: Share PNG, Download PNG, Copy Link, Close */}
           {activeSession && (
             <div className="space-y-3 w-full pt-1">
-              <p className="text-xs font-bold text-neutral-600 max-w-md mx-auto">
-                Berakhir pukul <strong>{new Date(activeSession.waktuBerakhir).toLocaleTimeString("id-ID")} WIB</strong>. Siswa wajib scan & live selfie di kelas.
+              <p className="text-xs font-bold text-neutral-600 max-w-md mx-auto" suppressHydrationWarning>
+                Berakhir pukul <strong suppressHydrationWarning>{formatWIBTime(activeSession.waktuBerakhir)}</strong>. Siswa wajib scan & live selfie di kelas.
               </p>
 
               <div className="flex flex-col gap-2 max-w-md mx-auto w-full">
@@ -681,8 +688,8 @@ export default function SekretarisQRKelasPage() {
                     </span>
                     <div>
                       <p className="font-black text-xs sm:text-sm text-[#181818] line-clamp-1">{rec.siswa.nama}</p>
-                      <p className="text-[10px] font-bold text-neutral-500">
-                        NISN: {rec.siswa.nis} • {new Date(rec.waktuAbsen).toLocaleTimeString("id-ID")} WIB
+                      <p className="text-[10px] font-bold text-neutral-500" suppressHydrationWarning>
+                        NISN: {rec.siswa.nis} • {formatWIBTime(rec.waktuAbsen)}
                       </p>
                     </div>
                   </div>
@@ -746,10 +753,10 @@ export default function SekretarisQRKelasPage() {
 
           <div className="p-3 bg-blue-50 rounded-2xl border-2 border-blue-200 text-xs font-bold text-blue-900 flex items-center gap-2">
             <Clock className="w-4 h-4 text-blue-600 shrink-0" />
-            <span>
+            <span suppressHydrationWarning>
               Sesi akan berakhir pada:{" "}
-              <strong>
-                {new Date(Date.now() + selectedDuration * 60 * 1000).toLocaleTimeString("id-ID")} WIB
+              <strong suppressHydrationWarning>
+                {formatWIBTime(Date.now() + selectedDuration * 60 * 1000)}
               </strong>
             </span>
           </div>
@@ -774,6 +781,15 @@ export default function SekretarisQRKelasPage() {
           </div>
         </div>
       </Modal>
+
+      {/* Modern Alert Dialog */}
+      <AlertDialog
+        isOpen={alertState.isOpen}
+        onClose={() => setAlertState((prev) => ({ ...prev, isOpen: false }))}
+        title={alertState.title}
+        message={alertState.message}
+        type={alertState.type}
+      />
     </div>
   );
 }

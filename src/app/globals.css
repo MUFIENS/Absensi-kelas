@@ -185,3 +185,16 @@ body {
 ::-webkit-scrollbar-thumb:hover {
   background: #FF6FA5;
 }
+
+/* Performance rendering optimizations */
+.cv-auto {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 300px;
+}
+
+.gpu-accelerated {
+  transform: translateZ(0);
+  backface-visibility: hidden;
+  will-change: transform;
+}
+

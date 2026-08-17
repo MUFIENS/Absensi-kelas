@@ -8,5 +8,14 @@ export function getJakartaDateString(date: Date = new Date()): string {
 }
 
 export function getJakartaTimeString(date: Date = new Date()): string {
-  return date.toLocaleTimeString('id-ID', { timeZone: 'Asia/Jakarta', hour: '2-digit', minute: '2-digit' }) + ' WIB';
+  const str = date.toLocaleTimeString('id-ID', { timeZone: 'Asia/Jakarta', hour: '2-digit', minute: '2-digit' });
+  return str.replace('.', ':') + ' WIB';
 }
+
+export function formatWIBTime(dateVal: Date | string | number): string {
+  const d = new Date(dateVal);
+  if (isNaN(d.getTime())) return "--:-- WIB";
+  const str = d.toLocaleTimeString('id-ID', { timeZone: 'Asia/Jakarta', hour: '2-digit', minute: '2-digit' });
+  return str.replace('.', ':') + ' WIB';
+}
+

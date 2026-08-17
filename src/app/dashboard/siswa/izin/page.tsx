@@ -26,6 +26,7 @@ import { getStoredAuth } from "@/lib/store";
 import { supabase } from "@/lib/supabaseClient";
 import { submitIzinAction, getSignedMediaUrlAction } from "@/app/actions/absensiActions";
 import { getJakartaDateString } from "@/lib/dateUtils";
+import { compressImage } from "@/lib/imageUtils";
 import { AuthSession, IzinRecord, KategoriIzin } from "@/lib/types";
 
 export default function SiswaIzinPage() {
@@ -124,7 +125,7 @@ export default function SiswaIzinPage() {
 
   const myIzinRecords = izinList;
 
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
@@ -133,12 +134,14 @@ export default function SiswaIzinPage() {
       return;
     }
 
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      setSuratFoto(event.target?.result as string);
+    try {
+      // Auto compress large camera/gallery photo to ~100-200KB
+      const compressedDataUrl = await compressImage(file, 1024, 1024, 0.7);
+      setSuratFoto(compressedDataUrl);
       setErrorMsg("");
-    };
-    reader.readAsDataURL(file);
+    } catch {
+      setErrorMsg("Gagal memproses file foto.");
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {

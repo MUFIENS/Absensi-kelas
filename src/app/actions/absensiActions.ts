@@ -6,20 +6,30 @@ import { getHariEfektifBulan } from '@/lib/calendarApi';
 import { getJakartaDateString } from '@/lib/dateUtils';
 import type { AbsensiRecord, IzinRecord, QRSesi, RekapItemSiswa, Siswa, AdminUser, AuthSession } from '@/lib/types';
 
-// Helper: Ubah base64 data URL ke buffer untuk storage upload
+// Helper: Ubah base64 data URL ke buffer untuk storage upload dengan validasi server-side
 function decodeBase64Image(dataUrl: string): { buffer: Buffer; contentType: string } {
   const matches = dataUrl.match(/^data:([A-Za-z-+\/]+);base64,(.+)$/);
+  let contentType = 'image/jpeg';
+  let buffer: Buffer;
+
   if (matches && matches.length === 3) {
-    return {
-      contentType: matches[1],
-      buffer: Buffer.from(matches[2], 'base64'),
-    };
+    contentType = matches[1].toLowerCase();
+    buffer = Buffer.from(matches[2], 'base64');
+  } else {
+    buffer = Buffer.from(dataUrl, 'base64');
   }
-  // Fallback jika format raw base64
-  return {
-    contentType: 'image/jpeg',
-    buffer: Buffer.from(dataUrl, 'base64'),
-  };
+
+  // Server-side Guard: Validasi bahwa MIME type adalah gambar
+  if (!contentType.startsWith('image/')) {
+    contentType = 'image/jpeg';
+  }
+
+  // Server-side Guard: Maksimal ukuran file setelah kompresi adalah 3 MB
+  if (buffer.length > 3 * 1024 * 1024) {
+    throw new Error('Ukuran file foto melebihi batas maksimum server (3 MB).');
+  }
+
+  return { buffer, contentType };
 }
 
 // 1. Autentikasi Siswa
@@ -106,7 +116,7 @@ export async function authenticateAdminAction(usernameRaw: string, passwordRaw: 
   if (!admin || !constantTimeCompare(admin.password_hash, cleanPass)) {
     return {
       success: false,
-      message: 'Username atau password pengurus/wali kelas salah.',
+      message: 'Username atau password salah.',
     };
   }
 
@@ -135,61 +145,76 @@ export async function createQRSesiAction(params: {
   adminId: number;
   adminName: string;
 }) {
-  const supabase = getSupabaseServerClient();
-  const now = new Date();
-  const todayStr = getJakartaDateString(now);
-  const startTime = now.toISOString();
-  const endTime = new Date(now.getTime() + params.durationMinutes * 60000).toISOString();
-  const prefix = params.jenis === 'kehadiran_kelas' ? 'KLAS' : 'SHLT';
-  const dateCode = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}`;
-  const randomCode = Math.random().toString(36).substring(2, 6).toUpperCase();
-  const token = `${prefix}-${dateCode}-${randomCode}`;
-  const qrUrl = `/dashboard/siswa/absen?token=${token}`;
+  try {
+    const duration = Math.max(5, Math.min(240, Number(params.durationMinutes) || 45));
+    const adminId = Number(params.adminId) || 1;
+    const adminName = sanitizeInputText(params.adminName || 'Admin');
 
-  // Nonaktifkan sesi aktif sebelumnya untuk jenis yang sama hari ini
-  await supabase
-    .from('qr_sessions')
-    .update({ is_active: false })
-    .eq('tanggal', todayStr)
-    .eq('jenis', params.jenis)
-    .eq('is_active', true);
+    const supabase = getSupabaseServerClient();
+    const now = new Date();
+    const todayStr = getJakartaDateString(now);
+    const startTime = now.toISOString();
+    const endTime = new Date(now.getTime() + duration * 60000).toISOString();
+    const prefix = params.jenis === 'kehadiran_kelas' ? 'KLAS' : 'SHLT';
+    const dateCode = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}`;
+    const randomCode = Math.random().toString(36).substring(2, 6).toUpperCase();
+    const token = `${prefix}-${dateCode}-${randomCode}`;
+    const qrUrl = `/dashboard/siswa/absen?token=${token}`;
 
-  const { data, error } = await supabase
-    .from('qr_sessions')
-    .insert({
-      jenis: params.jenis,
-      token,
-      qr_url: qrUrl,
-      tanggal: todayStr,
-      waktu_mulai: startTime,
-      waktu_berakhir: endTime,
-      admin_id: params.adminId,
-      admin_name: sanitizeInputText(params.adminName),
-      duration_minutes: params.durationMinutes,
-      is_active: true,
-    })
-    .select()
-    .single();
+    // Nonaktifkan sesi aktif sebelumnya untuk jenis yang sama hari ini
+    await supabase
+      .from('qr_sessions')
+      .update({ is_active: false })
+      .eq('tanggal', todayStr)
+      .eq('jenis', params.jenis)
+      .eq('is_active', true);
 
-  if (error || !data) {
-    return { success: false, message: `Gagal membuat sesi QR: ${error?.message || 'Unknown error'}` };
+    const { data, error } = await supabase
+      .from('qr_sessions')
+      .insert({
+        jenis: params.jenis,
+        token,
+        qr_url: qrUrl,
+        tanggal: todayStr,
+        waktu_mulai: startTime,
+        waktu_berakhir: endTime,
+        admin_id: adminId,
+        admin_name: adminName,
+        duration_minutes: duration,
+        is_active: true,
+      })
+      .select()
+      .single();
+
+    if (error || !data) {
+      return { success: false, message: `Gagal membuat sesi QR: ${error?.message || 'Database error'}` };
+    }
+
+    return { success: true, session: data };
+  } catch (err: any) {
+    return { success: false, message: err.message || 'Terjadi kesalahan saat membuka sesi QR.' };
   }
-
-  return { success: true, session: data };
 }
 
 // 4. Nonaktifkan Sesi QR
 export async function deactivateQRSesiAction(sesiId: number) {
-  const supabase = getSupabaseServerClient();
-  const { error } = await supabase
-    .from('qr_sessions')
-    .update({ is_active: false })
-    .eq('id', sesiId);
+  try {
+    if (!sesiId || isNaN(sesiId)) {
+      return { success: false, message: 'ID Sesi tidak valid.' };
+    }
+    const supabase = getSupabaseServerClient();
+    const { error } = await supabase
+      .from('qr_sessions')
+      .update({ is_active: false })
+      .eq('id', sesiId);
 
-  if (error) {
-    return { success: false, message: error.message };
+    if (error) {
+      return { success: false, message: error.message };
+    }
+    return { success: true };
+  } catch (err: any) {
+    return { success: false, message: err.message || 'Gagal menonaktifkan sesi.' };
   }
-  return { success: true };
 }
 
 // 5. Submit Presensi Siswa (Anti-Replay & Upload Selfie)
@@ -199,105 +224,122 @@ export async function submitAbsensiAction(params: {
   jenis: 'kehadiran_kelas' | 'sholat_dzuhur';
   fotoDataUrl: string;
 }) {
-  const supabase = getSupabaseServerClient();
-  const now = new Date();
-  const todayStr = getJakartaDateString(now);
+  try {
+    const cleanToken = sanitizeInputText(params.token || '').trim();
+    const targetSiswaId = Number(params.siswaId);
 
-  // 1. Validasi Token Sesi QR
-  const { data: sesi, error: sesiErr } = await supabase
-    .from('qr_sessions')
-    .select('*')
-    .eq('token', params.token)
-    .eq('jenis', params.jenis)
-    .eq('is_active', true)
-    .single();
+    if (!cleanToken) {
+      return { success: false, message: 'Token QR tidak valid.' };
+    }
+    if (!targetSiswaId || isNaN(targetSiswaId) || targetSiswaId <= 0) {
+      return { success: false, message: 'ID Siswa tidak valid.' };
+    }
+    if (!params.fotoDataUrl || !params.fotoDataUrl.startsWith('data:image/')) {
+      return { success: false, message: 'Foto selfie presensi wajib disertakan.' };
+    }
 
-  if (sesiErr || !sesi) {
-    return { success: false, message: 'QR Code tidak valid atau sesi telah dinonaktifkan.' };
+    const supabase = getSupabaseServerClient();
+    const now = new Date();
+    const todayStr = getJakartaDateString(now);
+
+    // 1. Validasi Token Sesi QR
+    const { data: sesi, error: sesiErr } = await supabase
+      .from('qr_sessions')
+      .select('*')
+      .eq('token', cleanToken)
+      .eq('jenis', params.jenis)
+      .eq('is_active', true)
+      .single();
+
+    if (sesiErr || !sesi) {
+      return { success: false, message: 'QR Code tidak valid atau sesi telah dinonaktifkan.' };
+    }
+
+    // Cek rentang waktu sesi
+    const waktuMulai = new Date(sesi.waktu_mulai);
+    const waktuBerakhir = new Date(sesi.waktu_berakhir);
+    if (now < waktuMulai) {
+      return { success: false, message: 'Sesi absensi belum dimulai.' };
+    }
+    if (now > waktuBerakhir) {
+      return { success: false, message: 'Sesi absensi telah berakhir / kedaluwarsa.' };
+    }
+
+    // 2. Cek Anti-Replay Token
+    const { data: existingConsumed } = await supabase
+      .from('consumed_qr_tokens')
+      .select('id')
+      .eq('token', cleanToken)
+      .eq('siswa_id', targetSiswaId)
+      .maybeSingle();
+
+    if (existingConsumed) {
+      return { success: false, message: 'QR Code ini sudah pernah Anda gunakan untuk absensi!' };
+    }
+
+    // 3. Cek Absensi Ganda Hari Ini
+    const { data: existingRecord } = await supabase
+      .from('absensi_records')
+      .select('id')
+      .eq('siswa_id', targetSiswaId)
+      .eq('jenis', params.jenis)
+      .eq('tanggal', todayStr)
+      .maybeSingle();
+
+    if (existingRecord) {
+      return {
+        success: false,
+        message: `Anda sudah tercatat melakukan absensi ${params.jenis === 'kehadiran_kelas' ? 'Kelas Pagi' : 'Sholat Dzuhur'} hari ini!`,
+      };
+    }
+
+    // 4. Upload Foto Selfie ke Private Storage
+    const { buffer, contentType } = decodeBase64Image(params.fotoDataUrl);
+    const storagePath = `selfies/${todayStr}/${targetSiswaId}_${params.jenis}_${Date.now()}.jpg`;
+
+    const { error: uploadErr } = await supabase.storage
+      .from('absensi-selfies')
+      .upload(storagePath, buffer, {
+        contentType,
+        upsert: true,
+      });
+
+    if (uploadErr) {
+      return { success: false, message: `Gagal mengunggah foto selfie: ${uploadErr.message}` };
+    }
+
+    // 5. Simpan Record Presensi & Catat Consumed Token
+    const { data: record, error: insertErr } = await supabase
+      .from('absensi_records')
+      .insert({
+        siswa_id: targetSiswaId,
+        qr_sesi_id: sesi.id,
+        jenis: params.jenis,
+        tanggal: todayStr,
+        waktu_absen: now.toISOString(),
+        status: 'pending',
+        foto_storage_path: storagePath,
+      })
+      .select()
+      .single();
+
+    if (insertErr || !record) {
+      return { success: false, message: `Gagal menyimpan presensi: ${insertErr?.message || 'DB error'}` };
+    }
+
+    // Simpan record consumed token
+    await supabase
+      .from('consumed_qr_tokens')
+      .insert({
+        token: cleanToken,
+        siswa_id: targetSiswaId,
+        consumed_at: now.toISOString(),
+      });
+
+    return { success: true, record };
+  } catch (err: any) {
+    return { success: false, message: err.message || 'Terjadi kesalahan sistem saat menyimpan presensi.' };
   }
-
-  // Cek rentang waktu sesi
-  const waktuMulai = new Date(sesi.waktu_mulai);
-  const waktuBerakhir = new Date(sesi.waktu_berakhir);
-  if (now < waktuMulai) {
-    return { success: false, message: 'Sesi absensi belum dimulai.' };
-  }
-  if (now > waktuBerakhir) {
-    return { success: false, message: 'Sesi absensi telah berakhir / kedaluwarsa.' };
-  }
-
-  // 2. Cek Anti-Replay Token
-  const { data: existingConsumed } = await supabase
-    .from('consumed_qr_tokens')
-    .select('id')
-    .eq('token', params.token)
-    .eq('siswa_id', params.siswaId)
-    .maybeSingle();
-
-  if (existingConsumed) {
-    return { success: false, message: 'QR Code ini sudah pernah Anda gunakan untuk absensi!' };
-  }
-
-  // 3. Cek Absensi Ganda Hari Ini
-  const { data: existingRecord } = await supabase
-    .from('absensi_records')
-    .select('id')
-    .eq('siswa_id', params.siswaId)
-    .eq('jenis', params.jenis)
-    .eq('tanggal', todayStr)
-    .maybeSingle();
-
-  if (existingRecord) {
-    return {
-      success: false,
-      message: `Anda sudah tercatat melakukan absensi ${params.jenis === 'kehadiran_kelas' ? 'Kelas Pagi' : 'Sholat Dzuhur'} hari ini!`,
-    };
-  }
-
-  // 4. Upload Foto Selfie ke Private Storage
-  const { buffer, contentType } = decodeBase64Image(params.fotoDataUrl);
-  const storagePath = `selfies/${todayStr}/${params.siswaId}_${params.jenis}_${Date.now()}.jpg`;
-
-  const { error: uploadErr } = await supabase.storage
-    .from('absensi-selfies')
-    .upload(storagePath, buffer, {
-      contentType,
-      upsert: true,
-    });
-
-  if (uploadErr) {
-    return { success: false, message: `Gagal mengunggah foto selfie: ${uploadErr.message}` };
-  }
-
-  // 5. Simpan Record Presensi & Catat Consumed Token
-  const { data: record, error: insertErr } = await supabase
-    .from('absensi_records')
-    .insert({
-      siswa_id: params.siswaId,
-      qr_sesi_id: sesi.id,
-      jenis: params.jenis,
-      tanggal: todayStr,
-      waktu_absen: now.toISOString(),
-      status: 'pending',
-      foto_storage_path: storagePath,
-    })
-    .select()
-    .single();
-
-  if (insertErr || !record) {
-    return { success: false, message: `Gagal menyimpan presensi: ${insertErr?.message || 'DB error'}` };
-  }
-
-  // Simpan record consumed token
-  await supabase
-    .from('consumed_qr_tokens')
-    .insert({
-      token: params.token,
-      siswa_id: params.siswaId,
-      consumed_at: now.toISOString(),
-    });
-
-  return { success: true, record };
 }
 
 // 6. Verifikasi Presensi (Disetujui / Ditolak)
@@ -307,21 +349,30 @@ export async function verifyAbsensiAction(params: {
   verifierName: string;
   alasan?: string;
 }) {
-  const supabase = getSupabaseServerClient();
-  const { error } = await supabase
-    .from('absensi_records')
-    .update({
-      status: params.status,
-      diverifikasi_oleh: sanitizeInputText(params.verifierName),
-      waktu_verifikasi: new Date().toISOString(),
-      alasan_penolakan: params.alasan ? sanitizeInputText(params.alasan) : null,
-    })
-    .eq('id', params.recordId);
+  try {
+    const recordId = Number(params.recordId);
+    if (!recordId || isNaN(recordId)) {
+      return { success: false, message: 'ID Presensi tidak valid.' };
+    }
 
-  if (error) {
-    return { success: false, message: error.message };
+    const supabase = getSupabaseServerClient();
+    const { error } = await supabase
+      .from('absensi_records')
+      .update({
+        status: params.status,
+        diverifikasi_oleh: sanitizeInputText(params.verifierName || 'Pengurus'),
+        waktu_verifikasi: new Date().toISOString(),
+        alasan_penolakan: params.alasan ? sanitizeInputText(params.alasan) : null,
+      })
+      .eq('id', recordId);
+
+    if (error) {
+      return { success: false, message: error.message };
+    }
+    return { success: true };
+  } catch (err: any) {
+    return { success: false, message: err.message || 'Gagal memverifikasi presensi.' };
   }
-  return { success: true };
 }
 
 // 7. Submit Surat Izin / Sakit
@@ -332,46 +383,61 @@ export async function submitIzinAction(params: {
   keterangan: string;
   suratFotoDataUrl?: string;
 }) {
-  const supabase = getSupabaseServerClient();
-  const now = new Date();
-  let storagePath = '';
-
-  // Upload Foto Surat ke Private Storage jika dilampirkan
-  if (params.suratFotoDataUrl) {
-    const { buffer, contentType } = decodeBase64Image(params.suratFotoDataUrl);
-    storagePath = `surat/${params.tanggal}/${params.siswaId}_${Date.now()}.jpg`;
-
-    const { error: uploadErr } = await supabase.storage
-      .from('surat-izin')
-      .upload(storagePath, buffer, {
-        contentType,
-        upsert: true,
-      });
-
-    if (uploadErr) {
-      return { success: false, message: `Gagal mengunggah foto surat: ${uploadErr.message}` };
+  try {
+    const targetSiswaId = Number(params.siswaId);
+    if (!targetSiswaId || isNaN(targetSiswaId) || targetSiswaId <= 0) {
+      return { success: false, message: 'Pilih siswa terlebih dahulu.' };
     }
+    if (!params.tanggal) {
+      return { success: false, message: 'Tanggal izin/sakit wajib diisi.' };
+    }
+    if (!params.keterangan || !params.keterangan.trim()) {
+      return { success: false, message: 'Alasan / keterangan izin wajib diisi.' };
+    }
+
+    const supabase = getSupabaseServerClient();
+    const now = new Date();
+    let storagePath = '';
+
+    // Upload Foto Surat ke Private Storage jika dilampirkan
+    if (params.suratFotoDataUrl && params.suratFotoDataUrl.startsWith('data:image/')) {
+      const { buffer, contentType } = decodeBase64Image(params.suratFotoDataUrl);
+      storagePath = `surat/${params.tanggal}/${targetSiswaId}_${Date.now()}.jpg`;
+
+      const { error: uploadErr } = await supabase.storage
+        .from('surat-izin')
+        .upload(storagePath, buffer, {
+          contentType,
+          upsert: true,
+        });
+
+      if (uploadErr) {
+        return { success: false, message: `Gagal mengunggah foto surat: ${uploadErr.message}` };
+      }
+    }
+
+    const { data: izin, error: insertErr } = await supabase
+      .from('izin_records')
+      .insert({
+        siswa_id: targetSiswaId,
+        jenis: params.jenis,
+        tanggal: params.tanggal,
+        keterangan: sanitizeForSpreadsheet(params.keterangan),
+        surat_storage_path: storagePath,
+        status: 'pending',
+        waktu_pengajuan: now.toISOString(),
+      })
+      .select()
+      .single();
+
+    if (insertErr || !izin) {
+      return { success: false, message: `Gagal menyimpan permohonan izin: ${insertErr?.message || 'DB error'}` };
+    }
+
+    return { success: true, izin, recordId: izin.id };
+  } catch (err: any) {
+    return { success: false, message: err.message || 'Terjadi kesalahan sistem saat menyimpan izin.' };
   }
-
-  const { data: izin, error: insertErr } = await supabase
-    .from('izin_records')
-    .insert({
-      siswa_id: params.siswaId,
-      jenis: params.jenis,
-      tanggal: params.tanggal,
-      keterangan: sanitizeForSpreadsheet(params.keterangan),
-      surat_storage_path: storagePath,
-      status: 'pending',
-      waktu_pengajuan: now.toISOString(),
-    })
-    .select()
-    .single();
-
-  if (insertErr || !izin) {
-    return { success: false, message: `Gagal menyimpan permohonan izin: ${insertErr?.message || 'DB error'}` };
-  }
-
-  return { success: true, izin, recordId: izin.id };
 }
 
 // 8. Verifikasi Izin (Disetujui / Ditolak)
@@ -382,45 +448,53 @@ export async function verifyIzinAction(params: {
   verifierName: string;
   alasan?: string;
 }) {
-  const targetId = params.izinId ?? params.recordId;
-  if (!targetId) {
-    return { success: false, message: 'ID izin tidak ditemukan.' };
-  }
+  try {
+    const targetId = Number(params.izinId ?? params.recordId);
+    if (!targetId || isNaN(targetId)) {
+      return { success: false, message: 'ID izin tidak ditemukan.' };
+    }
 
-  const supabase = getSupabaseServerClient();
-  const { error } = await supabase
-    .from('izin_records')
-    .update({
-      status: params.status,
-      diverifikasi_oleh: sanitizeInputText(params.verifierName),
-      waktu_verifikasi: new Date().toISOString(),
-      alasan_penolakan: params.alasan ? sanitizeInputText(params.alasan) : null,
-    })
-    .eq('id', targetId);
+    const supabase = getSupabaseServerClient();
+    const { error } = await supabase
+      .from('izin_records')
+      .update({
+        status: params.status,
+        diverifikasi_oleh: sanitizeInputText(params.verifierName || 'Pengurus'),
+        waktu_verifikasi: new Date().toISOString(),
+        alasan_penolakan: params.alasan ? sanitizeInputText(params.alasan) : null,
+      })
+      .eq('id', targetId);
 
-  if (error) {
-    return { success: false, message: error.message };
+    if (error) {
+      return { success: false, message: error.message };
+    }
+    return { success: true };
+  } catch (err: any) {
+    return { success: false, message: err.message || 'Gagal memverifikasi izin.' };
   }
-  return { success: true };
 }
 
-// 9. Dapatkan Signed URL untuk Melihat Foto (15 Menit)
+// 9. Dapatkan Signed URL untuk Melihat Foto (1 Jam)
 export async function getSignedMediaUrlAction(
   bucket: 'absensi-selfies' | 'surat-izin',
   storagePath: string
 ) {
-  if (!storagePath) return { success: false, url: '' };
+  try {
+    if (!storagePath) return { success: false, url: '' };
 
-  const supabase = getSupabaseServerClient();
-  const { data, error } = await supabase.storage
-    .from(bucket)
-    .createSignedUrl(storagePath, 3600); // 1 jam (3600 detik)
+    const supabase = getSupabaseServerClient();
+    const { data, error } = await supabase.storage
+      .from(bucket)
+      .createSignedUrl(storagePath, 3600); // 1 jam (3600 detik)
 
-  if (error || !data) {
-    return { success: false, url: '' };
+    if (error || !data) {
+      return { success: false, url: '' };
+    }
+
+    return { success: true, url: data.signedUrl };
+  } catch (err: any) {
+    return { success: false, url: '', message: err.message };
   }
-
-  return { success: true, url: data.signedUrl };
 }
 
 // 9b. Dapatkan Batch Signed URL untuk Melihat Banyak Foto Sekaligus (1 Jam)
@@ -428,33 +502,44 @@ export async function getSignedMediaUrlsBatchAction(
   bucket: 'absensi-selfies' | 'surat-izin',
   storagePaths: string[],
   expiresIn: number = 3600
-) {
-  if (!storagePaths || storagePaths.length === 0) return {};
+): Promise<Record<string, string>> {
+  try {
+    if (!storagePaths || storagePaths.length === 0) {
+      return {};
+    }
 
-  const supabase = getSupabaseServerClient();
-  const validPaths = Array.from(
-    new Set(
-      storagePaths.filter(
-        (p) => p && typeof p === 'string' && !p.startsWith('data:') && !p.startsWith('http')
+    const validPaths = Array.from(
+      new Set(
+        storagePaths.filter(
+          (p) => p && typeof p === 'string' && !p.startsWith('data:') && !p.startsWith('http')
+        )
       )
-    )
-  );
+    );
 
-  if (validPaths.length === 0) return {};
+    if (validPaths.length === 0) {
+      return {};
+    }
 
-  const { data, error } = await supabase.storage
-    .from(bucket)
-    .createSignedUrls(validPaths, expiresIn);
+    const supabase = getSupabaseServerClient();
+    const { data, error } = await supabase.storage
+      .from(bucket)
+      .createSignedUrls(validPaths, expiresIn);
 
-  const urlMap: Record<string, string> = {};
-  if (data) {
-    data.forEach((item) => {
+    if (error || !data) {
+      return {};
+    }
+
+    const urlMap: Record<string, string> = {};
+    for (const item of data) {
       if (item.signedUrl && item.path) {
         urlMap[item.path] = item.signedUrl;
       }
-    });
+    }
+
+    return urlMap;
+  } catch {
+    return {};
   }
-  return urlMap;
 }
 
 // 10. Ambil Rekap Presensi Bulanan Lengkap

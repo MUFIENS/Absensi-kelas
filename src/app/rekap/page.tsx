@@ -1,13 +1,24 @@
 "use client";
 
-import { useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useEffect, Suspense } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 
-export default function RedirectRekap() {
+function RedirectRekapContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+
   useEffect(() => {
-    router.replace("/dashboard/rekap");
-  }, [router]);
+    const query = searchParams.toString();
+    router.replace(`/dashboard/guru/rekap${query ? `?${query}` : ""}`);
+  }, [router, searchParams]);
 
   return null;
+}
+
+export default function RedirectRekap() {
+  return (
+    <Suspense fallback={null}>
+      <RedirectRekapContent />
+    </Suspense>
+  );
 }

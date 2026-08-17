@@ -111,27 +111,27 @@ export default function DashboardSekretarisPage() {
   return (
     <div className="max-w-6xl mx-auto space-y-6">
       {/* Sekretaris Welcome Banner */}
-      <div className="bg-[#FF7A2E] text-white p-6 sm:p-8 rounded-[36px] brutal-border-thick brutal-shadow-lg relative overflow-hidden bg-comic-dots-light">
-        <div className="relative z-10 flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
-          <div className="space-y-2">
-            <div className="inline-flex items-center gap-2 bg-white text-[#181818] px-3.5 py-1 rounded-xl brutal-border-2 font-black text-xs">
-              <Sparkles className="w-4 h-4 text-[#FF7A2E] stroke-[2.5]" />
+      <div className="bg-[#FF7A2E] text-white p-4 sm:p-6 md:p-8 rounded-2xl sm:rounded-[32px] brutal-border-thick brutal-shadow-lg relative overflow-hidden bg-comic-dots-light">
+        <div className="relative z-10 flex flex-col md:flex-row items-start md:items-center justify-between gap-4 sm:gap-6">
+          <div className="space-y-1.5 sm:space-y-2">
+            <div className="inline-flex items-center gap-1.5 sm:gap-2 bg-white text-[#181818] px-2.5 sm:px-3.5 py-0.5 sm:py-1 rounded-lg sm:rounded-xl brutal-border-2 font-black text-[10px] sm:text-xs">
+              <Sparkles className="w-3.5 h-3.5 text-[#FF7A2E] stroke-[2.5]" />
               <span>RUANG KERJA SEKRETARIS KELAS</span>
             </div>
 
-            <h2 className="text-2xl sm:text-4xl font-black font-fredoka leading-tight tracking-tight">
+            <h2 className="text-xl sm:text-3xl md:text-4xl font-black font-fredoka leading-tight tracking-tight">
               Semangat Pagi, {auth?.user.nama.split(" ")[0] || "Sekretaris"}!
             </h2>
 
-            <p className="text-xs sm:text-sm font-bold text-white/95 max-w-xl">
+            <p className="text-xs sm:text-sm font-bold text-white/95 max-w-xl leading-relaxed">
               Yuk nyalakan proyektor QR kelas pagi (06:30–07:45 WIB), cek selfie teman sekelas, dan pastikan rekapitulasi 46 siswa selalu beres!
             </p>
           </div>
 
-          <div className="flex flex-wrap gap-3">
-            <Link href="/dashboard/sekretaris/qr-kelas">
-              <Button variant="yellow" size="lg" className="gap-2 font-black">
-                <QrCode className="w-5 h-5 stroke-[2.5]" />
+          <div className="w-full md:w-auto">
+            <Link href="/dashboard/sekretaris/qr-kelas" className="block w-full">
+              <Button variant="yellow" size="md" className="w-full sm:w-auto justify-center gap-2 font-black text-xs sm:text-sm py-2.5 sm:py-3 shadow-[2.5px_2.5px_0px_#181818]">
+                <QrCode className="w-4 h-4 sm:w-5 sm:h-5 stroke-[2.5]" />
                 <span>Buka Proyektor QR Kelas</span>
               </Button>
             </Link>
@@ -161,30 +161,29 @@ export default function DashboardSekretarisPage() {
           </div>
         </div>
 
-        {/* Card 2: Antrian Foto Masuk */}
-        <div className="bg-white p-3.5 sm:p-5 rounded-2xl sm:rounded-3xl brutal-border-thick brutal-shadow flex flex-col justify-between gap-2.5">
+        {/* Card 2: Antrean Foto Masuk */}
+        <Link
+          href="/dashboard/sekretaris/verifikasi"
+          className="bg-white p-3.5 sm:p-5 rounded-2xl sm:rounded-3xl brutal-border-thick brutal-shadow flex flex-col justify-between gap-2.5 group hover:border-[#3355FF] transition-all cursor-pointer"
+        >
           <div className="flex items-center justify-between">
             <span className="text-[10px] sm:text-xs font-black text-neutral-500 uppercase tracking-wider">
               Antrean Foto
             </span>
-            <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-[#FFD400] text-[#181818] flex items-center justify-center brutal-border-2 shrink-0">
+            <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-[#FFD400] text-[#181818] flex items-center justify-center brutal-border-2 shrink-0 group-hover:scale-105 transition-transform">
               <Clock className="w-4 h-4 sm:w-5 sm:h-5 stroke-[2.5]" />
             </div>
           </div>
-          <div className="space-y-1.5">
+          <div>
             <p className="text-2xl sm:text-3xl font-black font-fredoka text-amber-600 leading-none">
               {pendingRecords.length} <span className="text-xs sm:text-sm font-bold text-neutral-500">Selfie</span>
             </p>
-            <Link
-              href="/dashboard/sekretaris/verifikasi"
-              className="w-full inline-flex items-center justify-center gap-1 py-1 px-2 bg-[#3355FF] text-white hover:bg-blue-600 text-[10px] sm:text-[11px] font-black rounded-lg brutal-border-2 shadow-[1.5px_1.5px_0px_#181818] active:translate-x-[1px] active:translate-y-[1px] active:shadow-none transition-all whitespace-nowrap"
-            >
-              <ShieldCheck className="w-3 h-3 sm:w-3.5 sm:h-3.5 shrink-0" />
-              <span>Verifikasi Foto</span>
-              <ArrowRight className="w-3 h-3 shrink-0" />
-            </Link>
+            <p className="text-[10px] sm:text-[11px] font-extrabold text-[#3355FF] mt-1 flex items-center gap-1 group-hover:underline">
+              <span>Review Foto</span>
+              <ArrowRight className="w-3 h-3 group-hover:translate-x-0.5 transition-transform" />
+            </p>
           </div>
-        </div>
+        </Link>
 
         {/* Card 3: Status Token QR */}
         <div className="bg-white p-3.5 sm:p-5 rounded-2xl sm:rounded-3xl brutal-border-thick brutal-shadow flex flex-col justify-between gap-2.5">
@@ -241,94 +240,98 @@ export default function DashboardSekretarisPage() {
       </div>
 
       {/* 4 Quick Action Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <Card variant="white" shadow="lg" className="space-y-4 flex flex-col justify-between">
-          <div className="space-y-4">
-            <div className="w-12 h-12 rounded-2xl bg-[#3355FF] text-white flex items-center justify-center brutal-border brutal-shadow-sm">
-              <QrCode className="w-6 h-6 stroke-[2.5]" />
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3.5 sm:gap-5">
+        <div className="bg-white p-4 sm:p-5 rounded-2xl sm:rounded-3xl brutal-border-thick brutal-shadow flex flex-col justify-between gap-4 group hover:translate-y-[-2px] transition-all">
+          <div className="space-y-3">
+            <div className="w-11 h-11 rounded-2xl bg-[#3355FF] text-white flex items-center justify-center brutal-border brutal-shadow-sm">
+              <QrCode className="w-5 h-5 stroke-[2.5]" />
             </div>
             <div>
-              <h3 className="text-lg font-black font-fredoka text-[#181818]">
-                1. Layar Proyektor Kelas
+              <h3 className="text-base sm:text-lg font-black font-fredoka text-[#181818]">
+                1. Proyektor QR Kelas
               </h3>
-              <p className="text-xs font-bold text-neutral-600 mt-1">
-                Nyalakan QR Code sesi pagi di proyektor depan kelas. Dilengkapi timer otomatis anti-screenshot.
+              <p className="text-xs font-bold text-neutral-600 mt-1 leading-relaxed">
+                Nyalakan QR presensi pagi di layar proyektor depan kelas dengan timer anti-screenshot.
               </p>
             </div>
           </div>
-          <Link href="/dashboard/sekretaris/qr-kelas" className="block pt-2">
-            <Button variant="primary" size="md" className="w-full justify-center gap-2 text-xs font-black">
-              <span>Buka Proyektor Pagi</span>
-              <ArrowRight className="w-4 h-4" />
-            </Button>
+          <Link
+            href="/dashboard/sekretaris/qr-kelas"
+            className="w-full py-2.5 px-3.5 bg-[#3355FF] hover:bg-blue-600 text-white rounded-xl brutal-border-2 shadow-[2px_2px_0px_#181818] active:translate-x-[1px] active:translate-y-[1px] active:shadow-none flex items-center justify-between text-xs font-black transition-all cursor-pointer"
+          >
+            <span>Buka Layar QR</span>
+            <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform shrink-0" />
           </Link>
-        </Card>
+        </div>
 
-        <Card variant="white" shadow="lg" className="space-y-4 flex flex-col justify-between">
-          <div className="space-y-4">
-            <div className="w-12 h-12 rounded-2xl bg-[#FFD400] text-[#181818] flex items-center justify-center brutal-border brutal-shadow-sm">
-              <ShieldCheck className="w-6 h-6 stroke-[2.5]" />
+        <div className="bg-white p-4 sm:p-5 rounded-2xl sm:rounded-3xl brutal-border-thick brutal-shadow flex flex-col justify-between gap-4 group hover:translate-y-[-2px] transition-all">
+          <div className="space-y-3">
+            <div className="w-11 h-11 rounded-2xl bg-[#FFD400] text-[#181818] flex items-center justify-center brutal-border brutal-shadow-sm">
+              <ShieldCheck className="w-5 h-5 stroke-[2.5]" />
             </div>
             <div>
-              <h3 className="text-lg font-black font-fredoka text-[#181818]">
+              <h3 className="text-base sm:text-lg font-black font-fredoka text-[#181818]">
                 2. Verifikasi Selfie ({pendingRecords.length})
               </h3>
-              <p className="text-xs font-bold text-neutral-600 mt-1">
-                Cek keaslian foto wajah dan radius GPS teman sekelas yang baru aja ngirim presensi.
+              <p className="text-xs font-bold text-neutral-600 mt-1 leading-relaxed">
+                Cek keaslian foto selfie wajah dan status radius GPS teman sekelas yang baru presensi.
               </p>
             </div>
           </div>
-          <Link href="/dashboard/sekretaris/verifikasi" className="block pt-2">
-            <Button variant="yellow" size="md" className="w-full justify-center gap-2 text-xs font-black">
-              <span>Review Foto Masuk</span>
-              <ArrowRight className="w-4 h-4" />
-            </Button>
+          <Link
+            href="/dashboard/sekretaris/verifikasi"
+            className="w-full py-2.5 px-3.5 bg-[#FFD400] hover:bg-yellow-400 text-[#181818] rounded-xl brutal-border-2 shadow-[2px_2px_0px_#181818] active:translate-x-[1px] active:translate-y-[1px] active:shadow-none flex items-center justify-between text-xs font-black transition-all cursor-pointer"
+          >
+            <span>Verifikasi Foto</span>
+            <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform shrink-0" />
           </Link>
-        </Card>
+        </div>
 
-        <Card variant="white" shadow="lg" className="space-y-4 flex flex-col justify-between">
-          <div className="space-y-4">
-            <div className="w-12 h-12 rounded-2xl bg-[#6FCB6F] text-[#181818] flex items-center justify-center brutal-border brutal-shadow-sm">
-              <FileText className="w-6 h-6 stroke-[2.5]" />
+        <div className="bg-white p-4 sm:p-5 rounded-2xl sm:rounded-3xl brutal-border-thick brutal-shadow flex flex-col justify-between gap-4 group hover:translate-y-[-2px] transition-all">
+          <div className="space-y-3">
+            <div className="w-11 h-11 rounded-2xl bg-[#6FCB6F] text-[#181818] flex items-center justify-center brutal-border brutal-shadow-sm">
+              <FileText className="w-5 h-5 stroke-[2.5]" />
             </div>
             <div>
-              <h3 className="text-lg font-black font-fredoka text-[#181818]">
-                3. Catat Surat Izin / Sakit
+              <h3 className="text-base sm:text-lg font-black font-fredoka text-[#181818]">
+                3. Catat Surat Izin
               </h3>
-              <p className="text-xs font-bold text-neutral-600 mt-1">
-                Input data siswa yang berhalangan hadir beserta lampiran foto surat dokter atau surat ortu.
+              <p className="text-xs font-bold text-neutral-600 mt-1 leading-relaxed">
+                Input keterangan izin/sakit siswa dan cek lampiran dokumen surat fisik di kelas.
               </p>
             </div>
           </div>
-          <Link href="/dashboard/sekretaris/izin" className="block pt-2">
-            <Button variant="green" size="md" className="w-full justify-center gap-2 text-xs font-black">
-              <span>Input Izin / Sakit</span>
-              <ArrowRight className="w-4 h-4" />
-            </Button>
+          <Link
+            href="/dashboard/sekretaris/izin"
+            className="w-full py-2.5 px-3.5 bg-[#6FCB6F] hover:bg-emerald-400 text-[#181818] rounded-xl brutal-border-2 shadow-[2px_2px_0px_#181818] active:translate-x-[1px] active:translate-y-[1px] active:shadow-none flex items-center justify-between text-xs font-black transition-all cursor-pointer"
+          >
+            <span>Catat Izin / Sakit</span>
+            <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform shrink-0" />
           </Link>
-        </Card>
+        </div>
 
-        <Card variant="white" shadow="lg" className="space-y-4 flex flex-col justify-between">
-          <div className="space-y-4">
-            <div className="w-12 h-12 rounded-2xl bg-[#FF6FA5] text-[#181818] flex items-center justify-center brutal-border brutal-shadow-sm">
-              <FileSpreadsheet className="w-6 h-6 stroke-[2.5]" />
+        <div className="bg-white p-4 sm:p-5 rounded-2xl sm:rounded-3xl brutal-border-thick brutal-shadow flex flex-col justify-between gap-4 group hover:translate-y-[-2px] transition-all">
+          <div className="space-y-3">
+            <div className="w-11 h-11 rounded-2xl bg-[#FF6FA5] text-[#181818] flex items-center justify-center brutal-border brutal-shadow-sm">
+              <FileSpreadsheet className="w-5 h-5 stroke-[2.5]" />
             </div>
             <div>
-              <h3 className="text-lg font-black font-fredoka text-[#181818]">
-                4. Rekapitulasi 46 Siswa
+              <h3 className="text-base sm:text-lg font-black font-fredoka text-[#181818]">
+                4. Rekapitulasi Kelas
               </h3>
-              <p className="text-xs font-bold text-neutral-600 mt-1">
-                Hitung persentase kehadiran bulanan, rincian sakit/izin/alpa, dan export ke file Excel (.xls).
+              <p className="text-xs font-bold text-neutral-600 mt-1 leading-relaxed">
+                Hitung persentase kehadiran 46 siswa dan unduh laporan resmi format Excel/CSV.
               </p>
             </div>
           </div>
-          <Link href="/dashboard/guru/rekap" className="block pt-2">
-            <Button variant="pink" size="md" className="w-full justify-center gap-2 text-xs font-black">
-              <span>Buka Master Rekap</span>
-              <ArrowRight className="w-4 h-4" />
-            </Button>
+          <Link
+            href="/dashboard/guru/rekap"
+            className="w-full py-2.5 px-3.5 bg-[#FF6FA5] hover:bg-pink-400 text-[#181818] rounded-xl brutal-border-2 shadow-[2px_2px_0px_#181818] active:translate-x-[1px] active:translate-y-[1px] active:shadow-none flex items-center justify-between text-xs font-black transition-all cursor-pointer"
+          >
+            <span>Buka Master Rekap</span>
+            <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform shrink-0" />
           </Link>
-        </Card>
+        </div>
       </div>
     </div>
   );

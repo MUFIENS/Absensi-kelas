@@ -29,6 +29,7 @@ import {
 } from "@/lib/store";
 import { supabase } from "@/lib/supabaseClient";
 import { submitIzinAction, verifyIzinAction, getSignedMediaUrlAction } from "@/app/actions/absensiActions";
+import { compressImage } from "@/lib/imageUtils";
 import { Siswa, IzinRecord, KategoriIzin, AuthSession } from "@/lib/types";
 
 export default function SekretarisIzinPage() {
@@ -145,15 +146,22 @@ export default function SekretarisIzinPage() {
     }
   };
 
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      setSuratFoto(event.target?.result as string);
-    };
-    reader.readAsDataURL(file);
+    if (!file.type.startsWith("image/")) {
+      setErrorMsg("File harus berupa gambar (JPG, PNG, atau scan dokumen).");
+      return;
+    }
+
+    try {
+      const compressedDataUrl = await compressImage(file, 1024, 1024, 0.7);
+      setSuratFoto(compressedDataUrl);
+      setErrorMsg("");
+    } catch {
+      setErrorMsg("Gagal memproses file foto.");
+    }
   };
 
   const handleAddIzin = async (e: React.FormEvent) => {
@@ -442,7 +450,7 @@ export default function SekretarisIzinPage() {
                 <Dropdown
                   options={siswaOptions}
                   value={selectedSiswaId}
-                  onChange={(val) => setSelectedSiswaId(val)}
+                  onChange={(val) => setSelectedSiswaId(String(val))}
                   placeholder="Pilih nama siswa..."
                   searchable
                 />
@@ -452,13 +460,13 @@ export default function SekretarisIzinPage() {
                 <label className="text-xs font-black uppercase text-neutral-700 block">
                   Jenis Izin:
                 </label>
-                <div className="grid grid-cols-3 gap-2">
+                <div className="grid grid-cols-3 gap-1.5 sm:gap-2">
                   {(["Sakit", "Izin", "Dispensasi"] as KategoriIzin[]).map((k) => (
                     <button
                       key={k}
                       type="button"
                       onClick={() => setJenisIzin(k)}
-                      className={`py-2 px-2 rounded-xl font-black text-xs border-2 transition-all ${
+                      className={`py-2 px-1 rounded-xl font-black text-[11px] sm:text-xs border-2 transition-all text-center truncate ${
                         jenisIzin === k
                           ? "bg-[#181818] text-[#FFD400] border-[#181818] shadow-[2px_2px_0px_#181818]"
                           : "bg-white text-neutral-700 border-neutral-300 hover:bg-neutral-100"
@@ -488,13 +496,15 @@ export default function SekretarisIzinPage() {
                 <label className="text-xs font-black uppercase text-neutral-700 block">
                   Lampirkan Foto Surat (Opsional):
                 </label>
-                <input
-                  type="file"
-                  ref={fileInputRef}
-                  onChange={handleFileUpload}
-                  accept="image/*"
-                  className="w-full text-xs font-bold text-neutral-600 file:mr-3 file:py-1.5 file:px-3 file:rounded-xl file:border-2 file:border-[#181818] file:bg-[#FF6FA5] file:font-black file:text-xs file:text-[#181818] file:cursor-pointer"
-                />
+                <div className="max-w-full overflow-hidden bg-white/70 p-2 rounded-2xl brutal-border-2">
+                  <input
+                    type="file"
+                    ref={fileInputRef}
+                    onChange={handleFileUpload}
+                    accept="image/*"
+                    className="w-full text-[11px] sm:text-xs font-bold text-neutral-600 file:mr-2 file:py-1 file:px-2.5 file:rounded-xl file:border-2 file:border-[#181818] file:bg-[#FF6FA5] file:font-black file:text-[11px] sm:file:text-xs file:text-[#181818] file:cursor-pointer cursor-pointer"
+                  />
+                </div>
               </div>
 
               <Button
@@ -502,7 +512,7 @@ export default function SekretarisIzinPage() {
                 variant="primary"
                 size="md"
                 disabled={isSubmitting}
-                className="w-full justify-center gap-2 text-xs sm:text-sm"
+                className="w-full justify-center gap-2 text-xs sm:text-sm font-black"
               >
                 <Plus className="w-4 h-4" />
                 <span>{isSubmitting ? "Menyimpan..." : "Simpan Keterangan Izin"}</span>
