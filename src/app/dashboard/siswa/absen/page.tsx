@@ -26,7 +26,8 @@ import {
   Check,
   X,
   Info,
-  ExternalLink
+  ExternalLink,
+  FlipHorizontal
 } from "lucide-react";
 import { AppIcon } from "@/components/ui/AppIcon";
 import { Button } from "@/components/ui/Button";
@@ -49,6 +50,9 @@ function SiswaAbsenContent() {
 
   // Mode in Step 1: "camera" | "upload"
   const [scanMode, setScanMode] = useState<"camera" | "upload">("camera");
+
+  // Camera Facing Mode ("user" = Depan, "environment" = Belakang)
+  const [cameraFacing, setCameraFacing] = useState<"user" | "environment">("environment");
 
   // Form State
   const [scannedToken, setScannedToken] = useState<string>("");
@@ -106,10 +110,6 @@ function SiswaAbsenContent() {
         const urlToken = searchParams.get("token");
         if (urlToken) {
           applyToken(urlToken, true);
-        } else {
-          setScannedToken(mapped.token);
-          setValidatedSession(mapped);
-          setErrorMsg("");
         }
       } else {
         const urlToken = searchParams.get("token");
@@ -279,7 +279,14 @@ function SiswaAbsenContent() {
     applyToken(clean, false);
   };
 
-  const startCamera = async (facingMode: "user" | "environment" = "user") => {
+  const toggleCamera = async () => {
+    const nextMode = cameraFacing === "environment" ? "user" : "environment";
+    setCameraFacing(nextMode);
+    await startCamera(nextMode);
+  };
+
+  const startCamera = async (facingMode?: "user" | "environment") => {
+    const targetFacing = facingMode || cameraFacing;
     stopCamera();
     try {
       if (typeof navigator === "undefined" || !navigator.mediaDevices?.getUserMedia) {
@@ -289,7 +296,7 @@ function SiswaAbsenContent() {
 
       const stream = await navigator.mediaDevices.getUserMedia({
         video: {
-          facingMode: { ideal: facingMode },
+          facingMode: { ideal: targetFacing },
           width: { ideal: 720 },
           height: { ideal: 720 },
         },
@@ -466,6 +473,7 @@ function SiswaAbsenContent() {
     setValidatedSession(mapped);
     setErrorMsg("");
     setStep(2);
+    setCameraFacing("user");
     setTimeout(() => {
       startCamera("user");
       fetchCurrentLocation();
@@ -525,7 +533,7 @@ function SiswaAbsenContent() {
 
   const handleRetakePhoto = () => {
     setCapturedPhoto(null);
-    startCamera("user");
+    startCamera(cameraFacing);
   };
 
   const handleSubmitAbsensi = async () => {
