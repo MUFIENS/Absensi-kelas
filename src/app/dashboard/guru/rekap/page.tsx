@@ -408,7 +408,7 @@ export default function GuruRekapPage() {
   const backLink = auth?.role === "admin" ? "/dashboard/sekretaris" : "/dashboard/guru";
 
   return (
-    <div className="max-w-7xl mx-auto space-y-6">
+    <div className="w-full max-w-7xl mx-auto space-y-4 sm:space-y-6 overflow-hidden">
       {/* Calendar Breakdown Dialog */}
       <Dialog
         isOpen={showCalendarInfo}

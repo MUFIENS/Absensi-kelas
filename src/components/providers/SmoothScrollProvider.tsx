@@ -1,25 +1,45 @@
 "use client";
 
 import React, { useEffect, useRef } from "react";
+import { usePathname } from "next/navigation";
 import Lenis from "lenis";
 
 export function SmoothScrollProvider({ children }: { children: React.ReactNode }) {
+  const pathname = usePathname();
   const lenisRef = useRef<Lenis | null>(null);
 
   useEffect(() => {
-    // Initialize Lenis smooth scroll
+    // Check if device is mobile / touch or on dashboard routes
+    const isTouchDevice = typeof window !== "undefined" && (
+      "ontouchstart" in window ||
+      navigator.maxTouchPoints > 0 ||
+      window.matchMedia("(pointer: coarse)").matches ||
+      window.innerWidth < 1024
+    );
+
+    const isDashboard = pathname.startsWith("/dashboard");
+
+    // NEVER hijack touch gestures on mobile devices or inside dashboard
+    if (isTouchDevice || isDashboard) {
+      if (lenisRef.current) {
+        lenisRef.current.destroy();
+        lenisRef.current = null;
+      }
+      return;
+    }
+
+    // Initialize Lenis smooth scroll for desktop landing page only
     const lenis = new Lenis({
-      duration: 1.2,
+      duration: 1.1,
       easing: (t) => Math.min(1, 1.001 - Math.pow(2, -10 * t)),
       orientation: "vertical",
       gestureOrientation: "vertical",
       smoothWheel: true,
       wheelMultiplier: 1,
-      touchMultiplier: 1.5,
+      touchMultiplier: 0,
     });
     lenisRef.current = lenis;
 
-    // Expose lenis globally for optional controls
     if (typeof window !== "undefined") {
       (window as unknown as { __lenis?: Lenis }).__lenis = lenis;
     }
@@ -48,7 +68,7 @@ export function SmoothScrollProvider({ children }: { children: React.ReactNode }
         const elem = document.querySelector(href);
         if (elem) {
           e.preventDefault();
-          lenis.scrollTo(elem as HTMLElement, { offset: -80, duration: 1.2 });
+          lenis.scrollTo(elem as HTMLElement, { offset: -80, duration: 1.1 });
         }
       }
       // Handle /#id when already on root "/"
@@ -57,7 +77,7 @@ export function SmoothScrollProvider({ children }: { children: React.ReactNode }
         const elem = document.querySelector(hash);
         if (elem) {
           e.preventDefault();
-          lenis.scrollTo(elem as HTMLElement, { offset: -80, duration: 1.2 });
+          lenis.scrollTo(elem as HTMLElement, { offset: -80, duration: 1.1 });
         }
       }
     };
@@ -73,7 +93,7 @@ export function SmoothScrollProvider({ children }: { children: React.ReactNode }
         delete (window as unknown as { __lenis?: Lenis }).__lenis;
       }
     };
-  }, []);
+  }, [pathname]);
 
   return <>{children}</>;
 }

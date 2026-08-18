@@ -18,8 +18,18 @@ export default function DashboardLayout({
 }) {
   const pathname = usePathname();
   const router = useRouter();
-  const [auth, setAuth] = useState<AuthSession | null>(null);
-  const [isCheckingAuth, setIsCheckingAuth] = useState<boolean>(true);
+  const [auth, setAuth] = useState<AuthSession | null>(() => {
+    if (typeof window !== "undefined") {
+      return getStoredAuth();
+    }
+    return null;
+  });
+  const [isCheckingAuth, setIsCheckingAuth] = useState<boolean>(() => {
+    if (typeof window !== "undefined") {
+      return !getStoredAuth();
+    }
+    return true;
+  });
   const [sidebarOpen, setSidebarOpen] = useState<boolean>(false);
 
   useEffect(() => {
@@ -31,7 +41,7 @@ export default function DashboardLayout({
     if (!currentAuth) {
       const redirectTimer = setTimeout(() => {
         router.replace(`/login?redirect=${encodeURIComponent(pathname)}`);
-      }, 800);
+      }, 500);
       return () => clearTimeout(redirectTimer);
     }
   }, [pathname, router]);
@@ -143,7 +153,7 @@ export default function DashboardLayout({
   }
 
   return (
-    <div className="h-screen w-full flex bg-[#F8F8F5] text-[#181818] antialiased overflow-hidden">
+    <div className="min-h-screen lg:h-screen w-full max-w-full flex bg-[#F8F8F5] text-[#181818] antialiased lg:overflow-hidden">
       {/* Persistent / Responsive Dashboard Sidebar */}
       <DashboardSidebar
         auth={auth}
@@ -152,15 +162,14 @@ export default function DashboardLayout({
       />
 
       {/* Main App Content Body */}
-      <div className="flex-1 flex flex-col h-full min-w-0 w-full overflow-hidden">
+      <div className="flex-1 flex flex-col min-h-screen lg:h-full min-w-0 w-full max-w-full lg:overflow-hidden">
         <DashboardHeader
           auth={auth}
           onToggleSidebar={() => setSidebarOpen(!sidebarOpen)}
         />
 
         <main
-          data-lenis-prevent="true"
-          className="flex-1 p-2.5 sm:p-5 lg:p-8 overflow-y-auto overflow-x-hidden overscroll-contain"
+          className="flex-1 p-3 sm:p-5 lg:p-8 lg:overflow-y-auto overflow-x-hidden w-full max-w-full pb-24 sm:pb-16 lg:pb-8"
         >
           {children}
         </main>

@@ -73,7 +73,7 @@ export function DashboardHeader({
   };
 
   return (
-    <header className="shrink-0 z-30 w-full bg-white border-b-4 border-[#181818] px-2.5 sm:px-6 lg:px-8 py-2 sm:py-3.5 flex items-center justify-between brutal-shadow-sm select-none gap-2">
+    <header className="sticky top-0 shrink-0 z-30 w-full bg-white border-b-4 border-[#181818] px-3 sm:px-6 lg:px-8 py-2.5 sm:py-3.5 flex items-center justify-between brutal-shadow-sm select-none gap-2">
       {/* Left: Mobile Toggle & Page Title */}
       <div className="flex items-center gap-2 sm:gap-2.5 min-w-0 flex-1">
         <button

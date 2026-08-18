@@ -229,7 +229,7 @@ export default function GuruDashboardPage() {
   };
 
   return (
-    <div className="max-w-6xl mx-auto space-y-6">
+    <div className="w-full max-w-6xl mx-auto space-y-4 sm:space-y-6 overflow-hidden">
       {/* Wali Kelas Welcome Banner */}
       <div className="bg-[#FF6FA5] text-[#181818] p-4 sm:p-6 md:p-8 rounded-2xl sm:rounded-[32px] brutal-border-thick brutal-shadow-lg relative overflow-hidden bg-comic-dots">
         <div className="relative z-10 flex flex-col md:flex-row items-start md:items-center justify-between gap-4 sm:gap-6">

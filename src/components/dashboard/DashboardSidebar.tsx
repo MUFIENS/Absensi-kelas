@@ -145,7 +145,7 @@ export function DashboardSidebar({
       <aside
         data-lenis-prevent="true"
         className={`fixed lg:static top-0 left-0 z-50 h-full w-72 max-w-[85vw] shrink-0 ${getRoleThemeBg()} border-r-4 border-[#181818] brutal-shadow flex flex-col justify-between p-4 sm:p-5 transition-transform duration-200 ease-in-out select-none overflow-y-auto overscroll-contain ${
-          isOpen ? "translate-x-0" : "-translate-x-[calc(100%+32px)] lg:translate-x-0"
+          isOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
         }`}
       >
         {/* Brand Header */}

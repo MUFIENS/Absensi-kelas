@@ -131,7 +131,7 @@ export default function DashboardSiswaPage() {
   const pendingCount = records.filter((r) => r.status === "pending").length + izinList.filter((i) => i.status === "pending").length;
 
   return (
-    <div className="max-w-5xl mx-auto space-y-6">
+    <div className="w-full max-w-5xl mx-auto space-y-4 sm:space-y-6 overflow-hidden">
       {/* Student Profile & Quick Presensi Banner */}
       <div className="bg-[#3355FF] text-white p-4 sm:p-6 md:p-8 rounded-2xl sm:rounded-[32px] brutal-border-thick brutal-shadow-lg relative overflow-hidden bg-comic-dots-light">
         <div className="relative z-10 flex flex-col md:flex-row items-start md:items-center justify-between gap-4 sm:gap-6">
